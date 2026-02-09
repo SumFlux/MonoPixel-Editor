@@ -168,7 +168,7 @@ class SelectTool(BaseTool):
             scale: 缩放比例
         """
         if self.start_pos and self.drag_start_pos and not self.selection_rect:
-            # 绘制正在创建的选区
+            # 绘制正在创建的选区（固定 2px 宽度）
             x1, y1 = self.start_pos
             x2, y2 = self.drag_start_pos
             left = min(x1, x2)
@@ -176,42 +176,59 @@ class SelectTool(BaseTool):
             width = abs(x2 - x1)
             height = abs(y2 - y1)
 
-            pen = QPen(QColor(0, 120, 215), 1 / scale, Qt.PenStyle.DashLine)
+            # 保存状态
+            painter.save()
+
+            # 固定 2px 宽度的虚线（使用 cosmetic pen）
+            pen = QPen(QColor(0, 120, 215), 2, Qt.PenStyle.DashLine)
+            pen.setCosmetic(True)  # 固定宽度，不随缩放变化
             painter.setPen(pen)
+
+            # 直接在场景坐标系中绘制
             painter.drawRect(left, top, width, height)
+            painter.restore()
 
         if self.selection_rect:
-            # 绘制选区边框（固定粗细）
+            # 绘制选区边框（固定 2px 宽度）
             x, y, width, height = self.selection_rect
 
             # 保存当前画笔状态
             painter.save()
 
-            # 设置固定粗细的边框（1px，不随缩放变化）
-            pen = QPen(QColor(0, 120, 215), 0, Qt.PenStyle.DashLine)  # 0 表示 1px 固定宽度
+            # 设置固定 2px 宽度的边框（使用 cosmetic pen）
+            pen = QPen(QColor(0, 120, 215), 2, Qt.PenStyle.DashLine)
+            pen.setCosmetic(True)  # 固定宽度，不随缩放变化
             painter.setPen(pen)
-            painter.drawRect(x, y, width, height)
 
-            # 绘制手柄（固定视图大小，使用 cosmetic 绘制）
-            handle_size = 6  # 视图像素大小
+            # 直接在场景坐标系中绘制边框
+            painter.drawRect(x, y, width, height)
+            painter.restore()
+
+            # 绘制手柄（固定视图大小 12px）
+            painter.save()
+
+            # 手柄在场景坐标系中的大小，至少 0.5 个场景像素以确保可见
+            handle_size_scene = max(12 / scale, 0.5)
             handles = self._get_handle_positions()
 
-            # 使用 cosmetic pen 和 brush
-            painter.setPen(QPen(QColor(0, 120, 215), 1))
+            # 使用 cosmetic pen 和普通填充
+            pen_handle = QPen(QColor(0, 120, 215), 0)  # 0 = cosmetic pen (1px)
+            pen_handle.setCosmetic(True)
+            painter.setPen(pen_handle)
             painter.setBrush(QColor(0, 120, 215))
 
+            from PyQt6.QtCore import QRectF
             for handle_pos in handles.values():
                 hx, hy = handle_pos
-                # 计算手柄在场景坐标中的大小（除以缩放比例）
-                half_size = handle_size / (2 * scale)
-                painter.drawRect(
-                    int(hx - half_size),
-                    int(hy - half_size),
-                    int(handle_size / scale),
-                    int(handle_size / scale)
+                # 使用 QRectF 绘制浮点数矩形
+                rect = QRectF(
+                    hx - handle_size_scene / 2,
+                    hy - handle_size_scene / 2,
+                    handle_size_scene,
+                    handle_size_scene
                 )
+                painter.drawRect(rect)
 
-            # 恢复画笔状态
             painter.restore()
 
     def clear_selection(self) -> None:

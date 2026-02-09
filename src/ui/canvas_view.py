@@ -313,8 +313,8 @@ class CanvasView(QGraphicsView):
         if self.current_tool and hasattr(self.current_tool, 'draw_overlay'):
             # 保存画笔状态
             painter.save()
-            # 绘制工具覆盖层
-            self.current_tool.draw_overlay(painter, 1.0 / self.zoom_level)
+            # 绘制工具覆盖层，传递缩放级别
+            self.current_tool.draw_overlay(painter, self.zoom_level)
             # 恢复画笔状态
             painter.restore()
 
