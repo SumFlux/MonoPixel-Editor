@@ -1,5 +1,16 @@
 # MonoPixel Editor 打包发布指南
 
+> 📦 详细的多平台打包和发布流程
+
+**相关文档**：
+- [快速打包指南](packaging/QUICK_BUILD.md) - 5分钟快速开始
+- [打包检查清单](packaging/BUILD_CHECKLIST.md) - 91项检查项
+- [常见错误排查](packaging/BUILD_TROUBLESHOOTING.md) - 18种错误解决方案
+- [打包最佳实践](packaging/BUILD_BEST_PRACTICES.md) - 经验和技巧
+- [版本发布工作流](packaging/RELEASE_WORKFLOW.md) - 完整发布流程
+
+---
+
 ## 目录
 
 1. [打包准备](#打包准备)

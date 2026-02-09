@@ -4,7 +4,7 @@
 创建一个基于 PyQt6 的单色像素画编辑与取模工具，专用于嵌入式 OLED/LCD 开发，支持多图层、完整绘图工具、文本渲染和多种取模格式导出。
 
 ## Current Phase
-Phase 8 - 修复新发现的问题（状态栏布局、文字预览框、字间距、选择框手柄、图层显示/隐藏）
+Phase 9 - 完善打包教程文档（创建补充文档，完善打包指南体系）
 
 ## Phases
 
@@ -91,10 +91,22 @@ Phase 8 - 修复新发现的问题（状态栏布局、文字预览框、字间�
 - [x] 添加快捷键（Ctrl+N, Ctrl+S, Ctrl+E, Ctrl+Z, Ctrl+Y, G）
 - [x] 优化 UI 样式（QSS）
 - [x] 添加图标资源
-- [ ] 使用 PyInstaller 打包
-- [ ] 测试打包后的可执行文件
+- [x] 创建 PyInstaller 配置（MonoPixelEditor.spec）
+- [x] 创建打包脚本（build.bat）
+- [x] 编写详细的打包指南（BUILD_GUIDE.md）
+- **Status:** complete
+- **完成日期:** 2026-02-09
+- **关键文件:** src/ui/main_window.py, MonoPixelEditor.spec, build.bat, docs/BUILD_GUIDE.md
+
+### Phase 9: 完善打包教程文档
+- [ ] 创建快速打包指南（QUICK_BUILD.md）
+- [ ] 创建打包检查清单（BUILD_CHECKLIST.md）
+- [ ] 创建常见错误排查手册（BUILD_TROUBLESHOOTING.md）
+- [ ] 创建打包最佳实践（BUILD_BEST_PRACTICES.md）
+- [ ] 创建版本发布工作流（RELEASE_WORKFLOW.md）
+- [ ] 更新文档索引（docs/README.md）
 - **Status:** in_progress
-- **关键文件:** src/ui/main_window.py, resources/
+- **关键文件:** docs/*.md
 
 ## 最近完成的修复（2026-02-09）
 

@@ -1,39 +1,39 @@
 @echo off
-REM MonoPixel Editor 打包脚本
+REM MonoPixel Editor Build Script
 
 echo ========================================
-echo MonoPixel Editor 打包工具
+echo MonoPixel Editor Build Tool
 echo ========================================
 echo.
 
-REM 检查 PyInstaller 是否安装
+REM Check if PyInstaller is installed
 python -c "import PyInstaller" 2>nul
 if errorlevel 1 (
-    echo [错误] 未安装 PyInstaller
-    echo 正在安装 PyInstaller...
+    echo [ERROR] PyInstaller not installed
+    echo Installing PyInstaller...
     pip install pyinstaller
     if errorlevel 1 (
-        echo [错误] PyInstaller 安装失败
+        echo [ERROR] PyInstaller installation failed
         pause
         exit /b 1
     )
 )
 
-echo [1/3] 清理旧的构建文件...
+echo [1/3] Cleaning old build files...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 
-echo [2/3] 开始打包应用程序...
+echo [2/3] Building application...
 pyinstaller MonoPixelEditor.spec
 
 if errorlevel 1 (
-    echo [错误] 打包失败
+    echo [ERROR] Build failed
     pause
     exit /b 1
 )
 
-echo [3/3] 打包完成！
+echo [3/3] Build completed!
 echo.
-echo 可执行文件位置: dist\MonoPixelEditor.exe
+echo Executable location: dist\MonoPixelEditor.exe
 echo.
 pause

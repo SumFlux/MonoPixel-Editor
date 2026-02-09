@@ -187,7 +187,7 @@
 ### Phase 9: 完善打包教程文档
 - **Status:** complete
 - **Started:** 2026-02-09 23:25
-- **Completed:** 2026-02-09 23:45
+- **Completed:** 2026-02-09 23:50
 - Actions taken:
   - 分析现有打包文档（BUILD_GUIDE.md）
   - 识别文档体系中的不足
@@ -197,14 +197,21 @@
   - 创建 BUILD_TROUBLESHOOTING.md（常见错误排查，18种错误）
   - 创建 BUILD_BEST_PRACTICES.md（打包最佳实践）
   - 创建 RELEASE_WORKFLOW.md（版本发布工作流）
-  - 更新 docs/README.md（文档索引）
+  - 创建 docs/build/ 子目录
+  - 移动补充文档到 build/ 子目录
+  - 更新所有文档中的链接
+  - 创建 docs/build/README.md（打包文档索引）
+  - 更新 docs/README.md（主文档索引）
 - Files created/modified:
-  - docs/QUICK_BUILD.md (created)
-  - docs/BUILD_CHECKLIST.md (created)
-  - docs/BUILD_TROUBLESHOOTING.md (created)
-  - docs/BUILD_BEST_PRACTICES.md (created)
-  - docs/RELEASE_WORKFLOW.md (created)
-  - docs/README.md (modified)
+  - docs/build/ (created directory)
+  - docs/build/QUICK_BUILD.md (created)
+  - docs/build/BUILD_CHECKLIST.md (created)
+  - docs/build/BUILD_TROUBLESHOOTING.md (created)
+  - docs/build/BUILD_BEST_PRACTICES.md (created)
+  - docs/build/RELEASE_WORKFLOW.md (created)
+  - docs/build/README.md (created)
+  - docs/BUILD_GUIDE.md (modified - 添加相关文档链接)
+  - docs/README.md (modified - 更新打包文档导航)
   - task_plan.md (modified)
   - findings.md (modified)
   - progress.md (modified)

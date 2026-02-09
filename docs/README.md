@@ -54,16 +54,20 @@
 
 | 文档 | 描述 | 适用对象 | 阅读时间 |
 |------|------|----------|----------|
-| [打包发布指南](BUILD_GUIDE.md) | 多平台打包和发布流程 | 维护者 | 30 分钟 |
+| [打包发布指南](BUILD_GUIDE.md) | 详细的多平台打包流程（主文档） | 所有开发者 | 30 分钟 |
+| [快速打包指南](packaging/QUICK_BUILD.md) | 5分钟快速打包 | 新手开发者 | 5 分钟 |
+| [打包检查清单](packaging/BUILD_CHECKLIST.md) | 完整的打包检查清单 | 所有开发者 | 10 分钟 |
+| [常见错误排查](packaging/BUILD_TROUBLESHOOTING.md) | 系统化的错误诊断和解决 | 遇到问题的开发者 | 20 分钟 |
+| [打包最佳实践](packaging/BUILD_BEST_PRACTICES.md) | 经验总结和优化技巧 | 有经验的开发者 | 25 分钟 |
+| [版本发布工作流](packaging/RELEASE_WORKFLOW.md) | 完整的版本发布流程 | 项目维护者 | 20 分钟 |
 
-**打包发布指南包含**：
-- ✅ Windows 打包（PyInstaller、Inno Setup）
-- ✅ macOS 打包（.app、.dmg、代码签名）
-- ✅ Linux 打包（AppImage、DEB）
-- ✅ 打包配置详解（spec 文件）
-- ✅ 常见问题（体积优化、路径问题）
-- ✅ 发布流程（版本管理、GitHub Release）
-- ✅ CI/CD 自动化（GitHub Actions）
+**打包文档体系包含**：
+- ✅ **快速开始**：5分钟快速打包（QUICK_BUILD.md）
+- ✅ **详细指南**：Windows/macOS/Linux 完整流程（BUILD_GUIDE.md）
+- ✅ **检查清单**：91项打包检查项（BUILD_CHECKLIST.md）
+- ✅ **错误排查**：18种常见错误和解决方案（BUILD_TROUBLESHOOTING.md）
+- ✅ **最佳实践**：项目结构、依赖管理、体积优化、安全性（BUILD_BEST_PRACTICES.md）
+- ✅ **发布流程**：版本管理、打包测试、GitHub Release（RELEASE_WORKFLOW.md）
 
 ---
 
@@ -89,11 +93,15 @@
 → 阅读 [开发文档 - 工具开发指南](DEVELOPMENT.md#工具开发指南)
 
 #### 📦 打包应用程序
-→ 阅读 [打包发布指南](BUILD_GUIDE.md)
+→ **新手**：阅读 [快速打包指南](packaging/QUICK_BUILD.md)（5分钟）
+→ **详细流程**：阅读 [打包发布指南](BUILD_GUIDE.md)
+→ **检查清单**：使用 [打包检查清单](packaging/BUILD_CHECKLIST.md)
+→ **遇到问题**：查看 [常见错误排查](packaging/BUILD_TROUBLESHOOTING.md)
 
 #### 🐛 遇到问题
-→ 阅读 [用户手册 - 常见问题](USER_MANUAL.md#常见问题)
-→ 阅读 [打包发布指南 - 常见问题](BUILD_GUIDE.md#常见问题)
+→ **使用问题**：阅读 [用户手册 - 常见问题](USER_MANUAL.md#常见问题)
+→ **打包问题**：阅读 [常见错误排查手册](packaging/BUILD_TROUBLESHOOTING.md)
+→ **详细说明**：阅读 [打包发布指南 - 常见问题](BUILD_GUIDE.md#常见问题)
 
 ---
 
@@ -141,7 +149,8 @@ grep "关键词" docs/USER_MANUAL.md
 - **工具**: pencil, eraser, line, rectangle, circle, fill, select, text
 - **功能**: export, layer, undo, redo, save, load
 - **格式**: C Array, Binary, PNG, horizontal, vertical, MSB, LSB
-- **问题**: error, issue, problem, troubleshoot
+- **打包**: build, package, pyinstaller, spec, dist
+- **问题**: error, issue, problem, troubleshoot, fix
 
 ---
 
@@ -177,7 +186,12 @@ grep "关键词" docs/USER_MANUAL.md
 | 用户手册 | ~8,000 | 12 | 20 |
 | 开发文档 | ~10,000 | 8 | 30 |
 | 打包发布指南 | ~7,000 | 7 | 25 |
-| **总计** | **~29,500** | **52** | **90** |
+| 快速打包指南 | ~1,500 | 6 | 10 |
+| 打包检查清单 | ~3,000 | 7 | 5 |
+| 常见错误排查 | ~5,000 | 7 | 30 |
+| 打包最佳实践 | ~6,000 | 8 | 40 |
+| 版本发布工作流 | ~4,000 | 6 | 20 |
+| **总计** | **~49,000** | **86** | **195** |
 
 ---
 
@@ -201,11 +215,16 @@ grep "关键词" docs/USER_MANUAL.md
 
 ## 📅 文档更新记录
 
-### v1.0.0 (2024-XX-XX)
+### v1.0.0 (2026-02-09)
 - ✅ 创建完整的文档体系
 - ✅ 用户手册（12章节，8000字）
 - ✅ 开发文档（8章节，10000字）
 - ✅ 打包发布指南（7章节，7000字）
+- ✅ 快速打包指南（6章节，1500字）
+- ✅ 打包检查清单（7章节，3000字）
+- ✅ 常见错误排查（7章节，5000字）
+- ✅ 打包最佳实践（8章节，6000字）
+- ✅ 版本发布工作流（6章节，4000字）
 - ✅ 项目总览（15章节，3000字）
 - ✅ 文档索引（本文件）
 
@@ -226,6 +245,6 @@ grep "关键词" docs/USER_MANUAL.md
 © 2024 MonoPixel. All rights reserved.
 
 **文档版本**: 1.0.0
-**最后更新**: 2024-XX-XX
-**文档总字数**: ~29,500 字
+**最后更新**: 2026-02-09
+**文档总字数**: ~49,000 字
 **文档完整度**: 100%

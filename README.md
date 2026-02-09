@@ -1,4 +1,4 @@
-# MonoPixel Editor
+# MonoPixel Editor v1.0.0
 
 一个基于 PyQt6 的单色像素画编辑与取模工具，专用于嵌入式 OLED/LCD 开发。
 

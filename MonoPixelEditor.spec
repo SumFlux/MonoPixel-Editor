@@ -48,5 +48,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico',  # 如果有图标文件
+    icon='icon.ico',  # 应用图标
 )
