@@ -69,6 +69,28 @@ class LayerPanel(QDockWidget):
 
         layout.addLayout(move_layout)
 
+        # 可见性/锁定按钮
+        visibility_layout = QHBoxLayout()
+
+        self.visibility_button = QPushButton("隐藏/显示")
+        self.visibility_button.clicked.connect(self.toggle_layer_visibility)
+        visibility_layout.addWidget(self.visibility_button)
+
+        self.lock_button = QPushButton("锁定/解锁")
+        self.lock_button.clicked.connect(self.toggle_layer_lock)
+        visibility_layout.addWidget(self.lock_button)
+
+        layout.addLayout(visibility_layout)
+
+        # 重命名按钮
+        rename_layout = QHBoxLayout()
+
+        self.rename_button = QPushButton("重命名")
+        self.rename_button.clicked.connect(self.rename_layer)
+        rename_layout.addWidget(self.rename_button)
+
+        layout.addLayout(rename_layout)
+
         self.setWidget(main_widget)
 
         # 初始化图层列表

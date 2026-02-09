@@ -37,7 +37,7 @@ class Toolbar(QToolBar):
         """创建工具按钮"""
         tools = [
             (TOOL_PENCIL, "画笔 (1)", "画笔工具"),
-            (TOOL_ERASER, "橡皮擦 (2)", "橡皮擦工具"),
+            (TOOL_ERASER, "橡皮 (2)", "橡皮工具"),
             (TOOL_LINE, "直线 (3)", "直线工具"),
             (TOOL_RECTANGLE, "矩形 (4)", "矩形工具"),
             (TOOL_CIRCLE, "圆形 (5)", "圆形工具"),
