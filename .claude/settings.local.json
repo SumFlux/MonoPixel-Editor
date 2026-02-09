@@ -40,7 +40,9 @@
       "Bash(git add:*)",
       "Skill(planning-with-files)",
       "Bash(build.bat << 'EOF'\n@echo off\nREM MonoPixel Editor Build Script\n\necho ========================================\necho MonoPixel Editor Build Tool\necho ========================================\necho.\n\nREM Check if PyInstaller is installed\npython -c \"import PyInstaller\" 2>nul\nif errorlevel 1 \\(\n    echo [ERROR] PyInstaller not installed\n    echo Installing PyInstaller...\n    pip install pyinstaller\n    if errorlevel 1 \\(\n        echo [ERROR] PyInstaller installation failed\n        pause\n        exit /b 1\n    \\)\n\\)\n\necho [1/3] Cleaning old build files...\nif exist build rmdir /s /q build\nif exist dist rmdir /s /q dist\n\necho [2/3] Building application...\npyinstaller MonoPixelEditor.spec\n\nif errorlevel 1 \\(\n    echo [ERROR] Build failed\n    pause\n    exit /b 1\n\\)\n\necho [3/3] Build completed!\necho.\necho Executable location: dist\\\\MonoPixelEditor.exe\necho.\npause\nEOF)",
-      "Bash(certutil:*)"
+      "Bash(certutil:*)",
+      "Bash(timeout 3 tail:*)",
+      "Bash(exit 0)"
     ]
   },
   "enabledPlugins": {

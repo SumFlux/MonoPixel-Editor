@@ -249,6 +249,28 @@ class SelectTool(BaseTool):
         """
         return self.selection_rect is not None
 
+    def delete_selection(self) -> bool:
+        """
+        删除选区内容
+
+        Returns:
+            是否成功删除
+        """
+        if not self.selection_rect:
+            return False
+
+        layer = self.canvas.get_active_layer()
+        if not layer or layer.locked:
+            return False
+
+        # 清除选区内的像素
+        self._clear_rect(layer.data, self.selection_rect)
+
+        # 清除选区状态
+        self.clear_selection()
+
+        return True
+
     def _extract_selection(self, layer_data: np.ndarray) -> np.ndarray:
         """
         提取选区数据

@@ -9,6 +9,7 @@ from PyQt6.QtGui import QAction, QKeySequence
 from ..core.canvas import Canvas
 from ..core.history import History, DrawCommand
 from ..core.project import Project
+from ..core.config import Config
 from ..utils.constants import (
     DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT,
     TOOL_PENCIL, TOOL_ERASER, TOOL_LINE, TOOL_RECTANGLE,
@@ -38,6 +39,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("MonoPixel Editor")
         self.setGeometry(100, 100, 1200, 800)
 
+        # 创建配置管理器
+        self.config = Config()
+
         # 创建画布
         self.canvas = Canvas(DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT)
 
@@ -63,6 +67,9 @@ class MainWindow(QMainWindow):
 
         # 设置默认工具
         self._set_tool(TOOL_PENCIL)
+
+        # 标记首次显示
+        self._first_show = True
 
     def _create_menu_bar(self) -> None:
         """创建菜单栏"""
@@ -150,6 +157,13 @@ class MainWindow(QMainWindow):
         fit_action.triggered.connect(self._on_fit_in_view)
         view_menu.addAction(fit_action)
 
+        # 图像菜单
+        image_menu = menubar.addMenu("图像(&I)")
+
+        canvas_size_action = QAction("画布大小(&C)...", self)
+        canvas_size_action.triggered.connect(self._on_canvas_size)
+        image_menu.addAction(canvas_size_action)
+
     def _create_tools(self) -> None:
         """创建工具实例"""
         self.tools = {
@@ -160,7 +174,7 @@ class MainWindow(QMainWindow):
             TOOL_CIRCLE: CircleTool(self.canvas),
             TOOL_BUCKET_FILL: BucketFillTool(self.canvas),
             TOOL_SELECT: SelectTool(self.canvas),
-            TOOL_TEXT: TextTool(self.canvas),
+            TOOL_TEXT: TextTool(self.canvas, self.config),
         }
         self.current_tool = None
 
@@ -256,7 +270,8 @@ class MainWindow(QMainWindow):
     # 菜单动作处理
     def _on_new(self) -> None:
         """新建画布"""
-        from PyQt6.QtWidgets import QMessageBox, QInputDialog
+        from PyQt6.QtWidgets import QMessageBox, QDialog
+        from .canvas_size_dialog import CanvasSizeDialog
 
         # 检查是否需要保存
         if self.project.is_modified():
@@ -274,38 +289,33 @@ class MainWindow(QMainWindow):
             elif reply == QMessageBox.StandardButton.Cancel:
                 return
 
-        # 获取画布尺寸
-        width, ok1 = QInputDialog.getInt(
-            self, "新建画布", "宽度:",
-            DEFAULT_CANVAS_WIDTH, 1, 9999
-        )
-        if not ok1:
-            return
+        # 显示画布尺寸对话框
+        dialog = CanvasSizeDialog(DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT, self)
+        dialog.setWindowTitle("新建画布")
 
-        height, ok2 = QInputDialog.getInt(
-            self, "新建画布", "高度:",
-            DEFAULT_CANVAS_HEIGHT, 1, 9999
-        )
-        if not ok2:
-            return
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            width, height = dialog.get_size()
 
-        # 创建新画布
-        self.canvas = Canvas(width, height)
-        self.project = Project(self.canvas)
-        self.history.clear()
+            # 创建新画布
+            self.canvas = Canvas(width, height)
+            self.project = Project(self.canvas)
+            self.history.clear()
 
-        # 更新工具
-        self._create_tools()
-        self._set_tool(TOOL_PENCIL)
+            # 更新工具
+            self._create_tools()
+            self._set_tool(TOOL_PENCIL)
 
-        # 更新 UI
-        self.canvas_view.canvas = self.canvas
-        self.canvas_view.update_canvas()
-        self.layer_panel.canvas = self.canvas
-        self.layer_panel.refresh_layers()
-        self.update_status_bar()
+            # 更新 UI
+            self.canvas_view.canvas = self.canvas
+            self.canvas_view.update_canvas()
+            self.layer_panel.canvas = self.canvas
+            self.layer_panel.refresh_layers()
+            self.update_status_bar()
 
-        self.status_message_label.setText(f"已创建新画布 ({width}x{height})")
+            # 自动适应窗口
+            self.canvas_view.fit_in_view()
+
+            self.status_message_label.setText(f"已创建新画布 ({width}x{height})")
 
     def _on_open(self) -> None:
         """打开项目"""
@@ -351,6 +361,9 @@ class MainWindow(QMainWindow):
             self.layer_panel.canvas = self.canvas
             self.layer_panel.refresh_layers()
             self.update_status_bar()
+
+            # 自动适应窗口
+            self.canvas_view.fit_in_view()
 
             # 更新窗口标题
             self.setWindowTitle(f"MonoPixel Editor - {self.project.get_file_name()}")
@@ -456,6 +469,30 @@ class MainWindow(QMainWindow):
         """适应窗口"""
         self.canvas_view.fit_in_view()
         self.update_status_bar()
+
+    def _on_canvas_size(self) -> None:
+        """编辑画布尺寸"""
+        from PyQt6.QtWidgets import QDialog
+        from .canvas_size_dialog import CanvasSizeDialog
+
+        # 显示对话框
+        dialog = CanvasSizeDialog(self.canvas.width, self.canvas.height, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_width, new_height = dialog.get_size()
+
+            # 如果尺寸没变，直接返回
+            if new_width == self.canvas.width and new_height == self.canvas.height:
+                return
+
+            # 调整画布尺寸
+            self.canvas.resize(new_width, new_height)
+
+            # 更新视图
+            self.canvas_view.update_canvas()
+            self.layer_panel.refresh_layers()
+            self.update_status_bar()
+
+            self.status_message_label.setText(f"画布尺寸已调整为 {new_width}x{new_height}")
 
     def _on_tool_changed(self, tool_id: str) -> None:
         """
@@ -600,6 +637,22 @@ class MainWindow(QMainWindow):
 
         event.accept()
 
+    def showEvent(self, event) -> None:
+        """
+        窗口显示事件
+
+        Args:
+            event: 显示事件
+        """
+        super().showEvent(event)
+
+        # 首次显示时自动适应窗口
+        if self._first_show:
+            self._first_show = False
+            # 使用 QTimer 延迟调用，确保窗口已完全显示
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(100, self.canvas_view.fit_in_view)
+
     def keyPressEvent(self, event) -> None:
         """
         键盘按下事件
@@ -608,9 +661,35 @@ class MainWindow(QMainWindow):
             event: 键盘事件
         """
         from PyQt6.QtCore import Qt
+        from ..tools.select import SelectTool
+        from ..core.history import DrawCommand
+
+        key = event.key()
+
+        # DEL 键删除选区
+        if key == Qt.Key.Key_Delete:
+            if isinstance(self.current_tool, SelectTool) and self.current_tool.has_selection():
+                layer = self.canvas.get_active_layer()
+                if layer and not layer.locked:
+                    # 保存旧数据用于撤销
+                    old_data = layer.data.copy()
+
+                    # 删除选区
+                    if self.current_tool.delete_selection():
+                        # 保存新数据
+                        new_data = layer.data.copy()
+
+                        # 添加到历史记录
+                        command = DrawCommand(layer, old_data, new_data)
+                        self.history.add(command)
+
+                        # 更新视图
+                        self.canvas_view.update_canvas()
+                        self.status_message_label.setText("已删除选区内容")
+            event.accept()
+            return
 
         # 工具切换快捷键（1-8）
-        key = event.key()
         tool_map = {
             Qt.Key.Key_1: TOOL_PENCIL,
             Qt.Key.Key_2: TOOL_ERASER,

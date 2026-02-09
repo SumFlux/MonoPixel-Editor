@@ -12,8 +12,9 @@ import os
 class TextInputDialog(QDialog):
     """文本输入对话框"""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, config=None):
         super().__init__(parent)
+        self.config = config
         self.setWindowTitle("输入文本")
         self.setModal(True)
 
@@ -60,6 +61,10 @@ class TextInputDialog(QDialog):
 
         self.custom_font_path = None
 
+        # 加载上次的配置
+        if self.config:
+            self._load_config()
+
     def load_custom_font(self):
         """加载自定义字体"""
         # 默认打开 fonts 文件夹
@@ -78,6 +83,36 @@ class TextInputDialog(QDialog):
             self.font_combo.addItem(font_name)
             self.font_combo.setCurrentText(font_name)
 
+    def _load_config(self):
+        """加载配置"""
+        last_font = self.config.get_last_font_name()
+        last_size = self.config.get_last_font_size()
+        last_custom_path = self.config.get_last_custom_font_path()
+
+        # 设置字号
+        self.size_spin.setValue(last_size)
+
+        # 如果有自定义字体路径，加载它
+        if last_custom_path and os.path.exists(last_custom_path):
+            self.custom_font_path = last_custom_path
+            font_name = os.path.basename(last_custom_path)
+            self.font_combo.addItem(font_name)
+            self.font_combo.setCurrentText(font_name)
+        else:
+            # 否则设置为上次的系统字体
+            index = self.font_combo.findText(last_font)
+            if index >= 0:
+                self.font_combo.setCurrentIndex(index)
+
+    def accept(self):
+        """保存配置并关闭对话框"""
+        if self.config:
+            self.config.set_last_font_name(self.font_combo.currentText())
+            self.config.set_last_font_size(self.size_spin.value())
+            if self.custom_font_path:
+                self.config.set_last_custom_font_path(self.custom_font_path)
+        super().accept()
+
     def get_values(self):
         """获取输入值"""
         return {
@@ -91,14 +126,16 @@ class TextInputDialog(QDialog):
 class TextTool(BaseTool):
     """文本工具"""
 
-    def __init__(self, canvas):
+    def __init__(self, canvas, config=None):
         """
         初始化文本工具
 
         Args:
             canvas: 画布对象
+            config: 配置管理器
         """
         super().__init__(canvas)
+        self.config = config
         self.font_manager = FontManager()
         self.text_service = TextService(self.font_manager)
         self.current_font = QFont("Arial", 16)
@@ -134,7 +171,7 @@ class TextTool(BaseTool):
         self.begin_draw()
 
         # 显示文本输入对话框
-        dialog = TextInputDialog()
+        dialog = TextInputDialog(None, self.config)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             values = dialog.get_values()
             text = values['text']
@@ -199,7 +236,7 @@ class TextTool(BaseTool):
             return
 
         # 显示文本输入对话框
-        dialog = TextInputDialog()
+        dialog = TextInputDialog(None, self.config)
         dialog.text_edit.setText(self.current_text)
 
         if dialog.exec() == QDialog.DialogCode.Accepted:
