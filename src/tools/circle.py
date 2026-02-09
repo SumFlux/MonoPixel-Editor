@@ -63,7 +63,9 @@ class CircleTool(BaseTool):
         for px, py in points:
             layer.set_pixel(px, py, True)
 
-        self.reset()
+        # 重置状态（但不调用 reset()，让 canvas_view 调用 end_draw()）
+        self.is_drawing = False
+        self.preview_points = []
 
     def _calculate_radius(self, cx: int, cy: int, x: int, y: int,
                          modifiers: Qt.KeyboardModifier) -> int:

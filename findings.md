@@ -77,12 +77,20 @@
 
 | Issue | Resolution |
 |-------|------------|
-| 撤销一次会影响多个操作 | 重新设计撤销/重做系统，添加 History.add() 方法分离命令添加和执行逻辑 |
-| 选择框手柄位置错误 | 移除 resetTransform()，使用正确的缩放计算：`handle_size / scale` |
-| 选择框边框随缩放变粗 | 使用 cosmetic pen (width=0) 保持固定 1px 粗细 |
-| 画布固定在中心无法拖动 | 改用 NoAnchor 模式替代 AnchorUnderMouse |
-| 文本字号不准确 | 使用 setPixelSize() 而非 setPointSize() 实现精确像素级控制 |
-| 文本工具缺少预览和编辑功能 | 完全重写文本工具，添加自定义对话框、预览拖拽、Enter 键重新编辑 |
+| 撤销一次会影响多个操作 | 重新设计撤销/重做系统，添加 History.add() 方法分离命令添加和执行逻辑 ✅ |
+| 选择框手柄位置错误 | 移除 resetTransform()，使用正确的缩放计算：`handle_size / scale` ✅ |
+| 选择框边框随缩放变粗 | 使用 cosmetic pen (width=0) 保持固定 1px 粗细 ✅ |
+| 画布固定在中心无法拖动 | 改用 NoAnchor 模式替代 AnchorUnderMouse，扩大场景矩形 ✅ |
+| 文本字号不准确 | 使用 setPixelSize() 而非 setPointSize() 实现精确像素级控制 ✅ |
+| 文本工具缺少预览和编辑功能 | 完全重写文本工具，添加自定义对话框、预览拖拽、Enter 键重新编辑 ✅ |
+| 状态栏坐标和状态重叠 | 重新设计状态栏布局，添加分隔符和弹性空间 ✅ |
+| 缩放级别不更新 | 添加 zoom_changed 信号，实时更新状态栏 ✅ |
+| 文字预览缺少边框 | 添加蓝色虚线边框，使用 cosmetic pen 固定宽度 ✅ |
+| 文字拖动后消失 | 文本工具编辑状态下保持预览显示 ✅ |
+| 鼠标坐标只在按下时更新 | 启用 setMouseTracking(True) 实时跟踪鼠标 - 待测试 |
+| 文字边框随缩放变大 | 使用 cosmetic pen 固定 2px 宽度 - 待测试 |
+| 点击文字外立即弹出新弹窗 | 修改为先取消选择，再次点击才弹出 - 待测试 |
+| 切换工具时坐标消失 | 已启用鼠标跟踪，应该不会消失 - 待测试 |
 
 ## Resources
 

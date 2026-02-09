@@ -191,6 +191,7 @@ class MainWindow(QMainWindow):
         # 画布视图信号
         self.canvas_view.draw_completed.connect(self._on_draw_completed)
         self.canvas_view.mouse_moved.connect(self._on_mouse_moved)
+        self.canvas_view.zoom_changed.connect(self._on_zoom_changed)
 
         # 图层面板信号
         self.layer_panel.layer_changed.connect(self._on_layer_changed)
@@ -213,21 +214,36 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
 
-        # 坐标标签（左侧）
+        # 状态消息标签（左侧）
+        self.status_message_label = QLabel("就绪")
+        self.status_bar.addWidget(self.status_message_label)
+
+        # 添加分隔符
+        separator1 = QLabel(" | ")
+        self.status_bar.addWidget(separator1)
+
+        # 坐标标签（左侧，状态消息右边）
         self.coord_label = QLabel("坐标: --, --")
         self.status_bar.addWidget(self.coord_label)
 
-        # 画布尺寸标签
+        # 添加弹性空间
+        spacer = QLabel()
+        spacer.setMinimumWidth(20)
+        self.status_bar.addWidget(spacer, 1)  # stretch factor = 1
+
+        # 画布尺寸标签（右侧）
         self.canvas_size_label = QLabel(
             f"画布: {self.canvas.width} x {self.canvas.height}"
         )
         self.status_bar.addPermanentWidget(self.canvas_size_label)
 
-        # 缩放级别标签
+        # 添加分隔符
+        separator2 = QLabel(" | ")
+        self.status_bar.addPermanentWidget(separator2)
+
+        # 缩放级别标签（右侧）
         self.zoom_label = QLabel("缩放: 100%")
         self.status_bar.addPermanentWidget(self.zoom_label)
-
-        self.status_bar.showMessage("就绪")
 
     def update_status_bar(self) -> None:
         """更新状态栏"""
@@ -289,7 +305,7 @@ class MainWindow(QMainWindow):
         self.layer_panel.refresh_layers()
         self.update_status_bar()
 
-        self.status_bar.showMessage(f"已创建新画布 ({width}x{height})")
+        self.status_message_label.setText(f"已创建新画布 ({width}x{height})")
 
     def _on_open(self) -> None:
         """打开项目"""
@@ -338,7 +354,7 @@ class MainWindow(QMainWindow):
 
             # 更新窗口标题
             self.setWindowTitle(f"MonoPixel Editor - {self.project.get_file_name()}")
-            self.status_bar.showMessage(f"已打开项目: {self.project.get_file_name()}")
+            self.status_message_label.setText(f"已打开项目: {self.project.get_file_name()}")
         else:
             QMessageBox.critical(self, "错误", "打开项目失败！")
 
@@ -353,7 +369,7 @@ class MainWindow(QMainWindow):
             # 已有文件路径，直接保存
             if self.project.save():
                 self.setWindowTitle(f"MonoPixel Editor - {self.project.get_file_name()}")
-                self.status_bar.showMessage(f"已保存: {self.project.get_file_name()}")
+                self.status_message_label.setText(f"已保存: {self.project.get_file_name()}")
                 return True
             else:
                 from PyQt6.QtWidgets import QMessageBox
@@ -384,7 +400,7 @@ class MainWindow(QMainWindow):
         # 保存项目
         if self.project.save(file_path):
             self.setWindowTitle(f"MonoPixel Editor - {self.project.get_file_name()}")
-            self.status_bar.showMessage(f"已保存: {self.project.get_file_name()}")
+            self.status_message_label.setText(f"已保存: {self.project.get_file_name()}")
             return True
         else:
             QMessageBox.critical(self, "错误", "保存项目失败！")
@@ -394,30 +410,30 @@ class MainWindow(QMainWindow):
         """导出"""
         dialog = ExportDialog(self.canvas, self)
         if dialog.exec():
-            self.status_bar.showMessage("导出成功")
+            self.status_message_label.setText("导出成功")
 
     def _on_undo(self) -> None:
         """撤销"""
         if self.history.undo():
             self.canvas_view.update_canvas()
             self.layer_panel.refresh_layers()
-            self.status_bar.showMessage("已撤销")
+            self.status_message_label.setText("已撤销")
         else:
-            self.status_bar.showMessage("无法撤销")
+            self.status_message_label.setText("无法撤销")
 
     def _on_redo(self) -> None:
         """重做"""
         if self.history.redo():
             self.canvas_view.update_canvas()
             self.layer_panel.refresh_layers()
-            self.status_bar.showMessage("已重做")
+            self.status_message_label.setText("已重做")
         else:
-            self.status_bar.showMessage("无法重做")
+            self.status_message_label.setText("无法重做")
 
     def _on_toggle_grid(self) -> None:
         """切换网格线"""
         self.canvas_view.toggle_grid()
-        self.status_bar.showMessage(
+        self.status_message_label.setText(
             "网格线已" + ("显示" if self.canvas.grid_visible else "隐藏")
         )
 
@@ -449,7 +465,8 @@ class MainWindow(QMainWindow):
             tool_id: 工具 ID
         """
         self._set_tool(tool_id)
-        self.status_bar.showMessage(f"已切换到: {tool_id}")
+        # 更新状态消息标签，而不是使用 showMessage
+        self.status_message_label.setText(f"已切换到: {tool_id}")
 
     def _set_tool(self, tool_id: str) -> None:
         """
@@ -540,11 +557,19 @@ class MainWindow(QMainWindow):
             x: X 坐标
             y: Y 坐标
         """
-        # 更新坐标显示
-        if 0 <= x < self.canvas.width and 0 <= y < self.canvas.height:
-            self.coord_label.setText(f"坐标: {x}, {y}")
-        else:
-            self.coord_label.setText("坐标: --, --")
+        # 始终更新坐标显示（实时显示鼠标位置）
+        self.coord_label.setText(f"坐标: {x}, {y}")
+
+    def _on_zoom_changed(self, zoom_level: float) -> None:
+        """
+        缩放变化事件
+
+        Args:
+            zoom_level: 缩放级别
+        """
+        # 更新缩放显示
+        zoom_percent = int(zoom_level * 100)
+        self.zoom_label.setText(f"缩放: {zoom_percent}%")
 
     def closeEvent(self, event) -> None:
         """

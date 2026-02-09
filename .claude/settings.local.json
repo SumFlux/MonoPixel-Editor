@@ -37,7 +37,8 @@
       "Bash(curl:*)",
       "Bash(tar:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Skill(planning-with-files)"
     ]
   },
   "enabledPlugins": {

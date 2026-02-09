@@ -9,8 +9,8 @@ MIN_ZOOM = 0.1
 MAX_ZOOM = 50.0
 ZOOM_STEP = 1.2
 
-# 网格线颜色（像素边界线）
-GRID_COLOR = (128, 128, 128, 255)  # RGBA - 深灰色，完全不透明
+# 网格线颜色（像素边界线）- 浅灰色，与黑色像素区分
+GRID_COLOR = (180, 180, 180, 255)  # RGBA - 浅灰色，完全不透明
 
 # 像素值
 PIXEL_BLACK = True

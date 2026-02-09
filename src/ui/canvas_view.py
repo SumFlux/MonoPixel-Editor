@@ -1,9 +1,9 @@
 """画布视图组件"""
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
-from PyQt6.QtCore import Qt, QPointF, QRectF, pyqtSignal
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QGraphicsLineItem
+from PyQt6.QtCore import Qt, QPointF, QRectF, pyqtSignal, QLineF
 from PyQt6.QtGui import QPixmap, QImage, QPainter, QPen, QColor, QWheelEvent, QMouseEvent, QBrush
 import numpy as np
-from typing import Optional
+from typing import Optional, List
 
 from ..core.canvas import Canvas
 from ..utils.constants import MIN_ZOOM, MAX_ZOOM, ZOOM_STEP, GRID_COLOR
@@ -14,6 +14,7 @@ class CanvasView(QGraphicsView):
 
     draw_completed = pyqtSignal(object, object)  # 绘制完成信号 (old_data, new_data)
     mouse_moved = pyqtSignal(int, int)  # 鼠标移动信号 (x, y)
+    zoom_changed = pyqtSignal(float)  # 缩放变化信号 (zoom_level)
 
     def __init__(self, canvas: Canvas):
         """
@@ -30,6 +31,9 @@ class CanvasView(QGraphicsView):
         # 画布图像项
         self.canvas_item: Optional[QGraphicsPixmapItem] = None
 
+        # 网格线项
+        self.grid_lines: List[QGraphicsLineItem] = []
+
         # 视图设置
         self.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
@@ -37,6 +41,7 @@ class CanvasView(QGraphicsView):
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.NoAnchor)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setMouseTracking(True)  # 启用鼠标跟踪，即使不按下也能接收鼠标移动事件
 
         # 缩放和平移状态
         self.zoom_level = 1.0
@@ -68,18 +73,14 @@ class CanvasView(QGraphicsView):
 
         # 转换为 QImage
         height, width = merged_data.shape
-        image = QImage(width, height, QImage.Format.Format_Mono)
+        image = QImage(width, height, QImage.Format.Format_RGB32)
 
-        # 填充图像数据
+        # 填充图像数据（纯黑色和纯白色）
         for y in range(height):
             for x in range(width):
-                # True=黑色(0), False=白色(1)
-                color = 0 if merged_data[y, x] else 1
+                # True=黑色, False=白色
+                color = 0xFF000000 if merged_data[y, x] else 0xFFFFFFFF
                 image.setPixel(x, y, color)
-
-        # 绘制网格线
-        if self.canvas.grid_visible:
-            image = self._draw_grid(image)
 
         # 更新场景
         pixmap = QPixmap.fromImage(image)
@@ -92,34 +93,38 @@ class CanvasView(QGraphicsView):
         margin = max(width, height) * 2  # 留出足够的边距
         self.scene.setSceneRect(-margin, -margin, width + margin * 2, height + margin * 2)
 
-    def _draw_grid(self, image: QImage) -> QImage:
-        """
-        在图像上绘制网格线
+        # 更新网格线
+        self._update_grid_lines()
 
-        Args:
-            image: 原始图像
+    def _update_grid_lines(self) -> None:
+        """更新网格线显示"""
+        # 清除旧的网格线
+        for line in self.grid_lines:
+            self.scene.removeItem(line)
+        self.grid_lines.clear()
 
-        Returns:
-            带网格线的图像
-        """
-        # 转换为 RGB 格式以支持半透明网格线
-        rgb_image = image.convertToFormat(QImage.Format.Format_ARGB32)
+        # 如果网格不可见，直接返回
+        if not self.canvas.grid_visible:
+            return
 
-        painter = QPainter(rgb_image)
+        # 创建网格线画笔（cosmetic pen，固定1px宽度）
         pen = QPen(QColor(*GRID_COLOR))
-        pen.setWidth(0)  # 1像素宽度
-        painter.setPen(pen)
+        pen.setWidth(0)  # 0 表示 cosmetic pen，固定1px宽度
+        pen.setCosmetic(True)  # 确保是 cosmetic pen
 
         # 绘制垂直线
-        for x in range(0, self.canvas.width + 1):
-            painter.drawLine(x, 0, x, self.canvas.height)
+        for x in range(self.canvas.width + 1):
+            line = QGraphicsLineItem(x, 0, x, self.canvas.height)
+            line.setPen(pen)
+            self.scene.addItem(line)
+            self.grid_lines.append(line)
 
         # 绘制水平线
-        for y in range(0, self.canvas.height + 1):
-            painter.drawLine(0, y, self.canvas.width, y)
-
-        painter.end()
-        return rgb_image
+        for y in range(self.canvas.height + 1):
+            line = QGraphicsLineItem(0, y, self.canvas.width, y)
+            line.setPen(pen)
+            self.scene.addItem(line)
+            self.grid_lines.append(line)
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         """
@@ -145,6 +150,8 @@ class CanvasView(QGraphicsView):
         if MIN_ZOOM <= new_zoom <= MAX_ZOOM:
             self.scale(zoom_factor, zoom_factor)
             self.zoom_level = new_zoom
+            # 发射缩放变化信号
+            self.zoom_changed.emit(self.zoom_level)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """
@@ -225,7 +232,12 @@ class CanvasView(QGraphicsView):
                 old_data, new_data = draw_data
                 self.draw_completed.emit(old_data, new_data)
 
-            self.update_canvas(show_preview=False)
+            # 对于文本工具，如果还在编辑状态，保持预览显示
+            from ..tools.text import TextTool
+            if isinstance(self.current_tool, TextTool) and self.current_tool.is_editing:
+                self.update_canvas(show_preview=True)
+            else:
+                self.update_canvas(show_preview=False)
             event.accept()
         else:
             super().mouseReleaseEvent(event)
@@ -284,6 +296,8 @@ class CanvasView(QGraphicsView):
         self.current_tool = tool
         if tool:
             self.setCursor(tool.get_cursor())
+        # 确保鼠标跟踪始终启用
+        self.setMouseTracking(True)
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
         """

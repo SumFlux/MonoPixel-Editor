@@ -65,7 +65,9 @@ class RectangleTool(BaseTool):
         for px, py in points:
             layer.set_pixel(px, py, True)
 
-        self.reset()
+        # 重置状态（但不调用 reset()，让 canvas_view 调用 end_draw()）
+        self.is_drawing = False
+        self.preview_points = []
 
     def _get_rectangle_points(self, x0: int, y0: int, x1: int, y1: int) -> list[tuple[int, int]]:
         """

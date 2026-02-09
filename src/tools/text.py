@@ -1,6 +1,6 @@
 """文本工具"""
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QPainter, QPen, QColor
 from PyQt6.QtWidgets import QInputDialog, QFileDialog, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QSpinBox, QPushButton, QComboBox
 from .base_tool import BaseTool
 from ..services.text_service import TextService
@@ -121,11 +121,10 @@ class TextTool(BaseTool):
                 px, py = self.preview_pos
                 self.drag_offset = (x - px, y - py)
             else:
-                # 点击在文本外，栅格化当前文本
+                # 点击在文本外，先栅格化当前文本并取消选择
                 self._rasterize_text()
                 self.reset()
-                # 开始新的文本输入
-                self._start_new_text(x, y)
+                # 不立即开始新的文本输入，等待下次点击
         else:
             # 开始新的文本输入
             self._start_new_text(x, y)
@@ -274,6 +273,29 @@ class TextTool(BaseTool):
                     points.append((px + dx, py + dy))
 
         return points
+
+    def draw_overlay(self, painter: QPainter, scale: float) -> None:
+        """
+        绘制覆盖层（文本预览边框）
+
+        Args:
+            painter: QPainter 对象
+            scale: 缩放比例
+        """
+        if self.is_editing and self.text_preview is not None and self.preview_pos is not None:
+            # 绘制蓝色虚线边框
+            px, py = self.preview_pos
+            height, width = self.text_preview.shape
+
+            painter.save()
+
+            # 设置固定宽度的边框（2px，使用 cosmetic pen）
+            pen = QPen(QColor(0, 120, 215), 2, Qt.PenStyle.DashLine)  # 蓝色虚线，2px宽
+            pen.setCosmetic(True)  # 固定宽度，不随缩放变化
+            painter.setPen(pen)
+            painter.drawRect(px, py, width, height)
+
+            painter.restore()
 
     def reset(self) -> None:
         """重置工具状态"""
