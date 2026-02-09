@@ -22,7 +22,8 @@ class RectangleTool(BaseTool):
 
     def on_press(self, x: int, y: int, modifiers: Qt.KeyboardModifier) -> None:
         """鼠标按下"""
-        self.begin_draw()  # 保存当前状态
+        if not self.is_drawing:
+            self.begin_draw()  # 只在开始新绘制时保存状态
         self.is_drawing = True
         self.start_pos = (x, y)
         self.last_pos = (x, y)

@@ -13,6 +13,7 @@ class CanvasView(QGraphicsView):
     """画布视图类，负责显示和交互"""
 
     draw_completed = pyqtSignal(object, object)  # 绘制完成信号 (old_data, new_data)
+    mouse_moved = pyqtSignal(int, int)  # 鼠标移动信号 (x, y)
 
     def __init__(self, canvas: Canvas):
         """
@@ -151,8 +152,8 @@ class CanvasView(QGraphicsView):
         Args:
             event: 鼠标事件
         """
-        # 中键开始平移
-        if event.button() == Qt.MouseButton.MiddleButton:
+        # 中键或右键开始平移
+        if event.button() == Qt.MouseButton.MiddleButton or event.button() == Qt.MouseButton.RightButton:
             self.is_panning = True
             self.last_pan_point = event.pos()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
@@ -174,6 +175,11 @@ class CanvasView(QGraphicsView):
         Args:
             event: 鼠标事件
         """
+        # 发射鼠标坐标信号
+        scene_pos = self.mapToScene(event.pos())
+        x, y = self.scene_to_canvas(scene_pos)
+        self.mouse_moved.emit(x, y)
+
         if self.is_panning:
             # 计算平移增量
             delta = event.pos() - self.last_pan_point
@@ -189,8 +195,6 @@ class CanvasView(QGraphicsView):
             event.accept()
         elif self.current_tool and self.current_tool.is_drawing:
             # 工具拖拽
-            scene_pos = self.mapToScene(event.pos())
-            x, y = self.scene_to_canvas(scene_pos)
             self.current_tool.on_drag(x, y, event.modifiers())
             self.update_canvas(show_preview=True)
             event.accept()

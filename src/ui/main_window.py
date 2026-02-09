@@ -190,6 +190,7 @@ class MainWindow(QMainWindow):
         """连接信号"""
         # 画布视图信号
         self.canvas_view.draw_completed.connect(self._on_draw_completed)
+        self.canvas_view.mouse_moved.connect(self._on_mouse_moved)
 
         # 图层面板信号
         self.layer_panel.layer_changed.connect(self._on_layer_changed)
@@ -211,6 +212,10 @@ class MainWindow(QMainWindow):
         """创建状态栏"""
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+
+        # 坐标标签（左侧）
+        self.coord_label = QLabel("坐标: --, --")
+        self.status_bar.addWidget(self.coord_label)
 
         # 画布尺寸标签
         self.canvas_size_label = QLabel(
@@ -453,6 +458,10 @@ class MainWindow(QMainWindow):
         Args:
             tool_id: 工具 ID
         """
+        # 如果当前工具是文本工具，先完成编辑
+        if self.current_tool and hasattr(self.current_tool, 'finalize'):
+            self.current_tool.finalize()
+
         if tool_id in self.tools:
             self.current_tool = self.tools[tool_id]
             self.canvas_view.set_tool(self.current_tool)
@@ -521,6 +530,20 @@ class MainWindow(QMainWindow):
         """
         self.canvas.active_layer_index = layer_index
         self.canvas_view.update_canvas()
+
+    def _on_mouse_moved(self, x: int, y: int) -> None:
+        """
+        鼠标移动事件
+
+        Args:
+            x: X 坐标
+            y: Y 坐标
+        """
+        # 更新坐标显示
+        if 0 <= x < self.canvas.width and 0 <= y < self.canvas.height:
+            self.coord_label.setText(f"坐标: {x}, {y}")
+        else:
+            self.coord_label.setText("坐标: --, --")
 
     def closeEvent(self, event) -> None:
         """
