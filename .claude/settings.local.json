@@ -1,0 +1,62 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where:*)",
+      "Bash(py:*)",
+      "Bash(if not exist .env copy .env.example .env)",
+      "Bash(.venvScriptspython:*)",
+      "Bash(mysql:*)",
+      "Bash(sc query:*)",
+      "Bash(docker:*)",
+      "Bash(docker-compose:*)",
+      "Bash(./venv/Scripts/python:*)",
+      "Bash(alembic revision:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(python:*)",
+      "Bash(uvicorn:*)",
+      "Bash(pip install:*)",
+      "Bash(powershell:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(\"venv/Scripts/python\":*)",
+      "Bash(tasklist)",
+      "Bash(\"venv/Scripts/uvicorn\":*)",
+      "Bash(\"venv/Scripts/alembic\" revision:*)",
+      "Bash(\"venv/Scripts/alembic\" upgrade:*)",
+      "Bash(\"venv/Scripts/pip\" install:*)",
+      "Bash(tree:*)",
+      "Bash(ruff check:*)",
+      "Bash(iconv:*)",
+      "Bash(ls:*)",
+      "Bash(pio run)",
+      "Bash(dir:*)",
+      "Bash(wc:*)",
+      "Bash(pio run:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl:*)",
+      "Bash(tar:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  },
+  "enabledPlugins": {
+    "everything-claude-code@everything-claude-code": true
+  },
+  "extraKnownMarketplaces": {
+    "everything-claude-code": {
+      "source": {
+        "source": "github",
+        "repo": "affaan-m/everything-claude-code"
+      }
+    }
+  },
+  "disabledMcpServers": [
+    "supabase",
+    "railway",
+    "vercel",
+    "linear",
+    "neon",
+    "browserbase"
+  ]
+}
