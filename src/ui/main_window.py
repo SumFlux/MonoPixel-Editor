@@ -513,7 +513,8 @@ class MainWindow(QMainWindow):
         layer = self.canvas.get_active_layer()
         if layer and old_data is not None and new_data is not None:
             command = DrawCommand(layer, old_data, new_data)
-            self.history.execute(command)
+            # 使用 add() 而不是 execute()，因为工具已经修改了图层数据
+            self.history.add(command)
             self.project.mark_modified()
 
     def _on_layer_changed(self) -> None:

@@ -181,35 +181,35 @@ class SelectTool(BaseTool):
             painter.drawRect(left, top, width, height)
 
         if self.selection_rect:
-            # 绘制选区边框
+            # 绘制选区边框（固定粗细）
             x, y, width, height = self.selection_rect
-            pen = QPen(QColor(0, 120, 215), 1 / scale, Qt.PenStyle.DashLine)
+
+            # 保存当前画笔状态
+            painter.save()
+
+            # 设置固定粗细的边框（1px，不随缩放变化）
+            pen = QPen(QColor(0, 120, 215), 0, Qt.PenStyle.DashLine)  # 0 表示 1px 固定宽度
             painter.setPen(pen)
             painter.drawRect(x, y, width, height)
 
-            # 绘制手柄（固定大小，不随缩放变化）
-            handle_size = 6  # 固定像素大小
+            # 绘制手柄（固定大小 6px）
+            handle_size = 6
             handles = self._get_handle_positions()
 
-            # 保存当前变换
-            painter.save()
-            # 重置变换，使手柄大小固定
-            painter.resetTransform()
+            painter.setBrush(QColor(0, 120, 215))
+            painter.setPen(Qt.PenStyle.NoPen)
 
             for handle_pos in handles.values():
                 hx, hy = handle_pos
-                # 将画布坐标转换为视图坐标
-                view_x = hx * scale
-                view_y = hy * scale
-                painter.fillRect(
-                    int(view_x - handle_size / 2),
-                    int(view_y - handle_size / 2),
-                    handle_size,
-                    handle_size,
-                    QColor(0, 120, 215)
+                # 绘制手柄矩形（中心在 hx, hy）
+                painter.drawRect(
+                    int(hx - handle_size / (2 * scale)),
+                    int(hy - handle_size / (2 * scale)),
+                    int(handle_size / scale),
+                    int(handle_size / scale)
                 )
 
-            # 恢复变换
+            # 恢复画笔状态
             painter.restore()
 
     def clear_selection(self) -> None:

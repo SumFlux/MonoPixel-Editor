@@ -1,11 +1,91 @@
 """文本工具"""
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import QInputDialog, QFontDialog
+from PyQt6.QtWidgets import QInputDialog, QFileDialog, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QSpinBox, QPushButton, QComboBox
 from .base_tool import BaseTool
 from ..services.text_service import TextService
 from ..services.font_manager import FontManager
 import numpy as np
+import os
+
+
+class TextInputDialog(QDialog):
+    """文本输入对话框"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("输入文本")
+        self.setModal(True)
+
+        layout = QVBoxLayout(self)
+
+        # 文本输入
+        text_layout = QHBoxLayout()
+        text_layout.addWidget(QLabel("文本:"))
+        self.text_edit = QLineEdit()
+        text_layout.addWidget(self.text_edit)
+        layout.addLayout(text_layout)
+
+        # 字体选择
+        font_layout = QHBoxLayout()
+        font_layout.addWidget(QLabel("字体:"))
+        self.font_combo = QComboBox()
+        self.font_combo.addItems(["Arial", "Courier New", "Times New Roman"])
+        font_layout.addWidget(self.font_combo)
+
+        # 加载字体按钮
+        self.load_font_btn = QPushButton("加载字体...")
+        self.load_font_btn.clicked.connect(self.load_custom_font)
+        font_layout.addWidget(self.load_font_btn)
+        layout.addLayout(font_layout)
+
+        # 字号输入（像素）
+        size_layout = QHBoxLayout()
+        size_layout.addWidget(QLabel("字号(像素):"))
+        self.size_spin = QSpinBox()
+        self.size_spin.setRange(8, 128)
+        self.size_spin.setValue(16)
+        size_layout.addWidget(self.size_spin)
+        layout.addLayout(size_layout)
+
+        # 按钮
+        button_layout = QHBoxLayout()
+        ok_btn = QPushButton("确定")
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(ok_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+
+        self.custom_font_path = None
+
+    def load_custom_font(self):
+        """加载自定义字体"""
+        # 默认打开 fonts 文件夹
+        fonts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "fonts")
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择字体文件",
+            fonts_dir,
+            "字体文件 (*.ttf *.otf)"
+        )
+
+        if file_path:
+            self.custom_font_path = file_path
+            font_name = os.path.basename(file_path)
+            self.font_combo.addItem(font_name)
+            self.font_combo.setCurrentText(font_name)
+
+    def get_values(self):
+        """获取输入值"""
+        return {
+            'text': self.text_edit.text(),
+            'font_name': self.font_combo.currentText(),
+            'font_size': self.size_spin.value(),
+            'custom_font_path': self.custom_font_path
+        }
 
 
 class TextTool(BaseTool):
@@ -21,74 +101,136 @@ class TextTool(BaseTool):
         super().__init__(canvas)
         self.font_manager = FontManager()
         self.text_service = TextService(self.font_manager)
-        self.current_font = QFont("Arial", 12)
+        self.current_font = QFont("Arial", 16)
+        self.current_font.setPixelSize(16)  # 使用像素大小
         self.squeeze_halfwidth = True
         self.text_preview = None
         self.preview_pos = None
-        self.is_editing = False  # 是否正在编辑文本
+        self.is_editing = False
+        self.current_text = ""
+        self.drag_offset = (0, 0)
 
     def on_press(self, x: int, y: int, modifiers: Qt.KeyboardModifier) -> None:
         """鼠标按下"""
-        # 如果已经有文本在编辑，点击其他地方则栅格化
+        # 如果已经有文本在编辑
         if self.is_editing and self.text_preview is not None:
             # 检查是否点击在文本区域内
-            if not self._is_point_in_text(x, y):
-                # 点击在文本外，栅格化文本
-                self._rasterize_text()
-                self.reset()
-                # 继续处理新的点击
-                self._start_new_text(x, y)
-            else:
+            if self._is_point_in_text(x, y):
                 # 点击在文本内，准备拖拽
                 self.is_drawing = True
+                px, py = self.preview_pos
+                self.drag_offset = (x - px, y - py)
+            else:
+                # 点击在文本外，栅格化当前文本
+                self._rasterize_text()
+                self.reset()
+                # 开始新的文本输入
+                self._start_new_text(x, y)
         else:
             # 开始新的文本输入
             self._start_new_text(x, y)
 
     def _start_new_text(self, x: int, y: int) -> None:
         """开始新的文本输入"""
-        self.begin_draw()  # 保存当前状态
+        self.begin_draw()
 
-        # 弹出文本输入对话框
-        text, ok = QInputDialog.getText(
-            None, "输入文本", "文本内容:",
-            text=""
-        )
+        # 显示文本输入对话框
+        dialog = TextInputDialog()
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            values = dialog.get_values()
+            text = values['text']
 
-        if not ok or not text:
-            self.reset()
-            return
+            if not text:
+                self.reset()
+                return
 
-        # 弹出字体选择对话框
-        font, ok = QFontDialog.getFont(self.current_font)
-        if ok:
-            self.current_font = font
+            # 设置字体
+            font_name = values['font_name']
+            font_size = values['font_size']
 
-        # 渲染文本
-        try:
-            text_bitmap = self.text_service.render_text(
-                text, self.current_font, self.squeeze_halfwidth
-            )
+            # 如果是自定义字体，加载它
+            if values['custom_font_path']:
+                loaded_font = self.font_manager.load_custom_font(values['custom_font_path'])
+                if loaded_font:
+                    font_name = loaded_font
 
-            # 保存预览
-            self.text_preview = text_bitmap
-            self.preview_pos = (x, y)
-            self.is_editing = True
-            self.is_drawing = False  # 不立即开始拖拽
+            # 创建字体对象，使用像素大小
+            self.current_font = QFont(font_name)
+            self.current_font.setPixelSize(font_size)
+            self.current_text = text
 
-        except Exception as e:
-            print(f"文本渲染失败: {e}")
+            # 渲染文本
+            try:
+                text_bitmap = self.text_service.render_text(
+                    text, self.current_font, self.squeeze_halfwidth
+                )
+
+                # 保存预览
+                self.text_preview = text_bitmap
+                self.preview_pos = (x, y)
+                self.is_editing = True
+                self.is_drawing = False
+
+            except Exception as e:
+                print(f"文本渲染失败: {e}")
+                self.reset()
+        else:
             self.reset()
 
     def on_drag(self, x: int, y: int, modifiers: Qt.KeyboardModifier) -> None:
         """鼠标拖拽（移动文本位置）"""
         if self.is_editing and self.text_preview is not None and self.is_drawing:
-            self.preview_pos = (x, y)
+            # 使用拖拽偏移量
+            self.preview_pos = (x - self.drag_offset[0], y - self.drag_offset[1])
 
     def on_release(self, x: int, y: int, modifiers: Qt.KeyboardModifier) -> None:
         """鼠标释放"""
-        # 释放鼠标后停止拖拽，但保持编辑状态
         self.is_drawing = False
+
+    def on_key_press(self, key: Qt.Key) -> None:
+        """键盘按下事件"""
+        # 按 Enter 键可以重新编辑文本
+        if key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
+            if self.is_editing and self.text_preview is not None:
+                self._edit_text()
+
+    def _edit_text(self) -> None:
+        """重新编辑文本"""
+        if not self.is_editing:
+            return
+
+        # 显示文本输入对话框
+        dialog = TextInputDialog()
+        dialog.text_edit.setText(self.current_text)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            values = dialog.get_values()
+            text = values['text']
+
+            if not text:
+                return
+
+            # 更新字体
+            font_name = values['font_name']
+            font_size = values['font_size']
+
+            if values['custom_font_path']:
+                loaded_font = self.font_manager.load_custom_font(values['custom_font_path'])
+                if loaded_font:
+                    font_name = loaded_font
+
+            self.current_font = QFont(font_name)
+            self.current_font.setPixelSize(font_size)
+            self.current_text = text
+
+            # 重新渲染
+            try:
+                text_bitmap = self.text_service.render_text(
+                    text, self.current_font, self.squeeze_halfwidth
+                )
+                self.text_preview = text_bitmap
+            except Exception as e:
+                print(f"文本渲染失败: {e}")
 
     def _is_point_in_text(self, x: int, y: int) -> bool:
         """检查点是否在文本区域内"""
@@ -109,7 +251,6 @@ class TextTool(BaseTool):
         if layer is None or layer.locked:
             return
 
-        # 栅格化文本到图层
         px, py = self.preview_pos
         height, width = self.text_preview.shape
 
@@ -140,6 +281,8 @@ class TextTool(BaseTool):
         self.text_preview = None
         self.preview_pos = None
         self.is_editing = False
+        self.current_text = ""
+        self.drag_offset = (0, 0)
 
     def finalize(self) -> None:
         """完成文本编辑（切换工具时调用）"""

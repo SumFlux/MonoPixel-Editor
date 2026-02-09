@@ -140,16 +140,13 @@ class History:
         self.commands: List[Command] = []
         self.current_index = -1
 
-    def execute(self, command: Command) -> None:
+    def add(self, command: Command) -> None:
         """
-        执行命令并添加到历史记录
+        添加命令到历史记录（不执行，因为工具已经执行过了）
 
         Args:
             command: 命令对象
         """
-        # 执行命令
-        command.execute()
-
         # 清除当前位置之后的所有命令
         self.commands = self.commands[:self.current_index + 1]
 
@@ -161,6 +158,19 @@ class History:
         if len(self.commands) > self.max_size:
             self.commands.pop(0)
             self.current_index -= 1
+
+    def execute(self, command: Command) -> None:
+        """
+        执行命令并添加到历史记录（用于图层操作等需要立即执行的命令）
+
+        Args:
+            command: 命令对象
+        """
+        # 执行命令
+        command.execute()
+
+        # 添加到历史记录
+        self.add(command)
 
     def undo(self) -> bool:
         """
