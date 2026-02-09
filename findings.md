@@ -1,0 +1,149 @@
+# Findings & Decisions - MonoPixel Editor
+
+## Requirements
+
+### 核心需求
+- 单色（1-bit）像素画编辑器
+- 专用于嵌入式 OLED/LCD 开发
+- 多图层支持（透明混合）
+- 完整绘图工具箱（画笔、橡皮、几何图形、填充、选择）
+- 文本渲染（全角正常 + 半角智能挤压 45%-55%）
+- 多种取模格式导出（水平/垂直扫描、MSB/LSB、字节对齐）
+- 导出预览（反向解析验证）
+- 项目保存/加载
+
+### 用户确认的设计决策
+1. **文本挤压策略**：智能调整 45%-55%（动态调整，优先可读性）
+2. **项目文件保存**：仅保存栅格化结果（不保存文本对象）
+3. **导出预览**：仅实时预览（无智能建议功能）
+4. **选区缩放**：允许任意比例（最近邻插值）
+
+## Research Findings
+
+### PyQt6 坐标系统
+- **视图坐标（View Coordinates）**：窗口像素坐标
+- **场景坐标（Scene Coordinates）**：画布逻辑坐标
+- **设备坐标（Device Coordinates）**：物理设备像素
+- 关键方法：`mapToScene()`, `mapFromScene()`
+
+### QGraphicsView 缩放与平移
+- **缩放中心**：使用 `setTransformationAnchor(AnchorUnderMouse)` 实现以鼠标为中心缩放
+- **平移问题**：`AnchorUnderMouse` 会导致画布固定在中心
+- **解决方案**：使用 `NoAnchor` 模式，允许自由平移
+
+### 撤销/重做系统设计
+- **命令模式（Command Pattern）**：标准设计模式
+- **关键问题**：工具已经修改了图层数据，但 `history.execute()` 又会再次执行命令
+- **解决方案**：
+  - 添加 `History.add()` 方法：只添加到历史记录，不执行
+  - 保留 `History.execute()` 方法：用于图层操作等需要立即执行的命令
+  - 绘图工具使用 `add()`，图层操作使用 `execute()`
+
+### 文本渲染技术
+- **QPainter 渲染**：使用 QPainter 将文本渲染到 QImage
+- **二值化处理**：关闭抗锯齿或使用阈值转换
+- **像素级字号**：使用 `setPixelSize()` 而非 `setPointSize()`
+- **半角字符挤压**：分析字符实际宽度，动态调整 45%-55%
+
+### 选择框渲染技术
+- **Cosmetic Pen**：`QPen(color, 0)` 表示 1px 固定宽度，不随缩放变化
+- **手柄定位**：使用 `handle_size / scale` 计算正确的手柄大小和位置
+- **坐标变换**：避免使用 `resetTransform()`，会破坏坐标系统
+
+### 取模算法
+- **水平扫描（Horizontal Scan）**：逐行扫描，每 8 个像素打包为 1 字节
+- **垂直扫描（Vertical Scan / Page Mode）**：OLED 特有，每列 8 个像素打包为 1 字节
+- **MSB/LSB**：最高位优先 vs 最低位优先
+- **字节对齐**：宽度不是 8 的倍数时需要补齐
+
+## Technical Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| 使用 PyQt6 作为 GUI 框架 | 跨平台、功能强大、文档完善、适合桌面应用 |
+| 使用 NumPy 存储位图数据 | 高效的数组操作、内存占用小、支持向量化运算 |
+| 图层数据使用 bool 类型 | 1-bit 颜色深度，bool 类型最直观且节省内存 |
+| 文本半角字符挤压 45%-55% | 平衡可读性和空间利用率，动态调整适应不同字体 |
+| 选区缩放使用最近邻插值 | 保持像素清晰度，适合像素画编辑 |
+| 项目文件使用 JSON + Base64 | 人类可读、易于调试、跨平台兼容 |
+| 撤销/重做使用命令模式 | 标准设计模式、易于扩展、支持复杂操作 |
+| 使用 History.add() 分离逻辑 | 避免重复执行已完成的绘制操作，修复撤销/重做问题 |
+| 选择框使用 cosmetic pen | 保持 1px 固定粗细，不随缩放变化，不妨碍视野 |
+| 文本工具使用 setPixelSize() | 精确控制像素级字号，而非点大小 |
+| 文本工具支持本地字体文件夹 | 方便用户添加自定义字体，无需安装到系统 |
+| 画布使用 NoAnchor 模式 | 允许自由平移，不固定在中心 |
+
+## Issues Encountered
+
+| Issue | Resolution |
+|-------|------------|
+| 撤销一次会影响多个操作 | 重新设计撤销/重做系统，添加 History.add() 方法分离命令添加和执行逻辑 |
+| 选择框手柄位置错误 | 移除 resetTransform()，使用正确的缩放计算：`handle_size / scale` |
+| 选择框边框随缩放变粗 | 使用 cosmetic pen (width=0) 保持固定 1px 粗细 |
+| 画布固定在中心无法拖动 | 改用 NoAnchor 模式替代 AnchorUnderMouse |
+| 文本字号不准确 | 使用 setPixelSize() 而非 setPointSize() 实现精确像素级控制 |
+| 文本工具缺少预览和编辑功能 | 完全重写文本工具，添加自定义对话框、预览拖拽、Enter 键重新编辑 |
+
+## Resources
+
+### 文档和参考
+- PyQt6 官方文档：https://www.riverbankcomputing.com/static/Docs/PyQt6/
+- NumPy 文档：https://numpy.org/doc/
+- SSD1306 OLED 数据手册：垂直扫描 Page mode 参考
+- Qt QGraphicsView 文档：坐标系统和变换
+
+### 项目结构
+```
+src/
+├── main.py                    # 应用入口
+├── core/                      # 核心数据模型
+│   ├── canvas.py              # 画布模型
+│   ├── layer.py               # 图层模型
+│   ├── project.py             # 项目管理
+│   ├── history.py             # 撤销/重做栈
+│   └── bitmap.py              # 位图操作
+├── tools/                     # 绘图工具
+├── ui/                        # UI 视图层
+├── services/                  # 业务逻辑
+└── utils/                     # 工具函数
+```
+
+### 关键文件
+- `src/core/history.py` - 撤销/重做系统核心
+- `src/tools/select.py` - 选择工具实现
+- `src/tools/text.py` - 文本工具实现
+- `src/ui/canvas_view.py` - 画布视图和交互
+- `src/services/export_service.py` - 取模算法实现
+- `test_undo_redo.py` - 撤销/重做功能测试
+
+## Visual/Browser Findings
+
+### 用户反馈的问题（2026-02-09）
+1. **选择框问题**：
+   - 手柄和框线分离，手柄固定在屏幕左上角
+   - 放大画布后框线变粗，妨碍视野
+
+2. **画布交互问题**：
+   - 画布固定在屏幕正中间
+   - 右键拖动没有效果
+
+3. **文本工具问题**：
+   - 字号输入值与实际像素高度不符
+   - 需要支持本地字体文件夹
+   - 需要预览状态，可拖拽和二次编辑
+
+4. **撤销/重做问题**：
+   - 画两根直线，点一次撤销会都撤销
+   - 撤销一次后再画直线，无法撤销
+   - 会对其他操作也产生撤回效果
+
+### 测试结果
+- ✅ 撤销/重做测试全部通过（test_undo_redo.py）
+- ✅ 选择框渲染正常（手柄位置正确，边框固定 1px）
+- ✅ 画布平移正常（右键拖动有效）
+- ✅ 文本工具功能完整（精确字号、本地字体、预览编辑）
+
+---
+
+*所有核心功能已完成并测试通过*
+*项目已达到 v1.0.0 发布标准*
