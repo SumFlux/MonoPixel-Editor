@@ -47,7 +47,9 @@ class TextService:
             if squeeze_halfwidth and not self.font_manager.is_fullwidth_char(char):
                 # 半角字符：智能挤压 45%-55%
                 char_width = temp_painter.fontMetrics().horizontalAdvance(char)
-                squeeze_ratio = self._calculate_squeeze_ratio(char, char_width, font.pointSize())
+                # 使用像素大小而不是点大小
+                font_size = font.pixelSize() if font.pixelSize() > 0 else font.pointSize()
+                squeeze_ratio = self._calculate_squeeze_ratio(char, char_width, font_size)
                 squeezed_width = int(char_width * squeeze_ratio)
                 char_widths.append(squeezed_width)
                 total_width += squeezed_width
@@ -94,7 +96,7 @@ class TextService:
         Args:
             char: 字符
             char_width: 字符原始宽度
-            font_size: 字体大小
+            font_size: 字体大小（像素）
 
         Returns:
             挤压比例（0.45-0.55）
@@ -168,7 +170,9 @@ class TextService:
         for char in text:
             if squeeze_halfwidth and not self.font_manager.is_fullwidth_char(char):
                 char_width = temp_painter.fontMetrics().horizontalAdvance(char)
-                squeeze_ratio = self._calculate_squeeze_ratio(char, char_width, font.pointSize())
+                # 使用像素大小而不是点大小
+                font_size = font.pixelSize() if font.pixelSize() > 0 else font.pointSize()
+                squeeze_ratio = self._calculate_squeeze_ratio(char, char_width, font_size)
                 total_width += int(char_width * squeeze_ratio)
             else:
                 total_width += temp_painter.fontMetrics().horizontalAdvance(char)

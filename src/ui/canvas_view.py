@@ -88,8 +88,9 @@ class CanvasView(QGraphicsView):
         else:
             self.canvas_item.setPixmap(pixmap)
 
-        # 设置场景矩形
-        self.scene.setSceneRect(0, 0, width, height)
+        # 设置场景矩形（比画布大，以便平移）
+        margin = max(width, height) * 2  # 留出足够的边距
+        self.scene.setSceneRect(-margin, -margin, width + margin * 2, height + margin * 2)
 
     def _draw_grid(self, image: QImage) -> QImage:
         """

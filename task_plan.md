@@ -4,7 +4,7 @@
 创建一个基于 PyQt6 的单色像素画编辑与取模工具，专用于嵌入式 OLED/LCD 开发，支持多图层、完整绘图工具、文本渲染和多种取模格式导出。
 
 ## Current Phase
-Phase 8 - 完成所有核心功能，进行 UI 优化与打包
+Phase 8 - 修复新发现的问题（撤销、平移、网格、选择框、文字显示）
 
 ## Phases
 
@@ -157,12 +157,17 @@ Phase 8 - 完成所有核心功能，进行 UI 优化与打包
 |-------|---------|------------|
 | 撤销一次会影响多个操作 | 1 | 添加 `if not self.is_drawing:` 检查 |
 | 撤销一次会影响多个操作 | 2 | 重新设计：添加 History.add() 方法，分离命令添加和执行 ✅ |
+| 画笔工具撤销问题 | 3 | 画笔和橡皮擦工具添加 `if not self.is_drawing:` 检查 ✅ |
 | 选择框手柄固定在左上角 | 1 | 使用 resetTransform() 方法 |
 | 选择框手柄固定在左上角 | 2 | 移除 resetTransform()，使用正确的缩放计算 ✅ |
 | 选择框边框随缩放变粗 | 1 | 使用 `1 / scale` 作为笔宽 |
 | 选择框边框随缩放变粗 | 2 | 使用 cosmetic pen (width=0) ✅ |
-| 画布固定在中心无法拖动 | 1 | 改用 NoAnchor 模式 ✅ |
-| 文本字号不准确 | 1 | 改用 setPixelSize() 而非 setPointSize() ✅ |
+| 选择框手柄太大遮挡视线 | 3 | 减小手柄大小从 6px 到 4px ✅ |
+| 画布固定在中心无法拖动 | 1 | 改用 NoAnchor 模式 |
+| 画布固定在中心无法拖动 | 2 | 扩大场景矩形，添加边距以支持平移 ✅ |
+| 文本字号不准确 | 1 | 改用 setPixelSize() 而非 setPointSize() |
+| 文本字号不准确（挤压计算错误） | 2 | 修复 text_service.py 使用 pixelSize() 而非 pointSize() ✅ |
+| 像素网格线不明显 | 1 | 修改网格线颜色为深灰色不透明 ✅ |
 
 ## Files Modified in Recent Session
 

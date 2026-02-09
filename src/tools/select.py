@@ -192,8 +192,8 @@ class SelectTool(BaseTool):
             painter.setPen(pen)
             painter.drawRect(x, y, width, height)
 
-            # 绘制手柄（固定大小 6px）
-            handle_size = 6
+            # 绘制手柄（固定视图大小 4px）
+            handle_size = 4  # 减小手柄大小
             handles = self._get_handle_positions()
 
             painter.setBrush(QColor(0, 120, 215))
@@ -201,7 +201,7 @@ class SelectTool(BaseTool):
 
             for handle_pos in handles.values():
                 hx, hy = handle_pos
-                # 绘制手柄矩形（中心在 hx, hy）
+                # 绘制手柄矩形（固定视图像素大小）
                 painter.drawRect(
                     int(hx - handle_size / (2 * scale)),
                     int(hy - handle_size / (2 * scale)),
