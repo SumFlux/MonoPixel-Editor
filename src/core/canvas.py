@@ -2,6 +2,7 @@
 import numpy as np
 from typing import List, Optional
 from .layer import Layer
+from .text_object import TextObject
 
 
 class Canvas:
@@ -24,22 +25,41 @@ class Canvas:
         # 创建默认图层
         self.add_layer("Background")
 
-    def add_layer(self, name: Optional[str] = None) -> Layer:
+    def add_layer(self, name: Optional[str] = None, layer_type: str = "bitmap") -> Layer:
         """
         添加新图层
 
         Args:
             name: 图层名称，如果为 None 则自动生成
+            layer_type: 图层类型 ('bitmap' | 'text')
 
         Returns:
             新创建的图层
         """
         if name is None:
-            name = f"Layer {len(self.layers) + 1}"
+            if layer_type == "text":
+                name = f"Text {len([l for l in self.layers if l.layer_type == 'text']) + 1}"
+            else:
+                name = f"Layer {len(self.layers) + 1}"
 
-        layer = Layer(self.width, self.height, name)
+        layer = Layer(self.width, self.height, name, layer_type)
         self.layers.append(layer)
         self.active_layer_index = len(self.layers) - 1
+        return layer
+
+    def add_text_layer(self, text_object: TextObject, name: Optional[str] = None) -> Layer:
+        """
+        添加文本图层
+
+        Args:
+            text_object: 文本对象
+            name: 图层名称，如果为 None 则自动生成
+
+        Returns:
+            新创建的文本图层
+        """
+        layer = self.add_layer(name, layer_type="text")
+        layer.text_object = text_object
         return layer
 
     def remove_layer(self, index: int) -> bool:
@@ -116,6 +136,8 @@ class Canvas:
         """
         合并所有可见图层
 
+        注意：文本图层需要先渲染为位图才能合并
+
         Returns:
             合并后的位图数据
         """
@@ -123,7 +145,7 @@ class Canvas:
 
         # 从下到上依次叠加
         for layer in self.layers:
-            if layer.visible:
+            if layer.visible and layer.layer_type == "bitmap" and layer.data is not None:
                 # 黑色像素（True）遮挡下层，白色像素（False）透明
                 result = np.logical_or(result, layer.data)
 
@@ -142,12 +164,16 @@ class Canvas:
 
         # 调整所有图层大小
         for layer in self.layers:
-            old_data = layer.data
-            layer.data = np.zeros((new_height, new_width), dtype=bool)
             layer.width = new_width
             layer.height = new_height
 
-            # 复制旧数据（左上角对齐）
-            copy_height = min(old_data.shape[0], new_height)
-            copy_width = min(old_data.shape[1], new_width)
-            layer.data[:copy_height, :copy_width] = old_data[:copy_height, :copy_width]
+            # 只调整位图图层的数据
+            if layer.layer_type == "bitmap" and layer.data is not None:
+                old_data = layer.data
+                layer.data = np.zeros((new_height, new_width), dtype=bool)
+
+                # 复制旧数据（左上角对齐）
+                copy_height = min(old_data.shape[0], new_height)
+                copy_width = min(old_data.shape[1], new_width)
+                layer.data[:copy_height, :copy_width] = old_data[:copy_height, :copy_width]
+            # 文本图层不需要调整数据，文本对象保持不变

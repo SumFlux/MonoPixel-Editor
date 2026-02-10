@@ -51,16 +51,16 @@ class MainWindow(QMainWindow):
         # 创建历史记录管理器
         self.history = History(max_size=50)
 
-        # 创建工具实例
-        self._create_tools()
-
-        # 创建 UI
+        # 创建 UI（需要在创建工具之前创建图层面板）
         self._create_menu_bar()
         self._create_toolbar()
         self._create_property_panel()
         self._create_layer_panel()
         self._create_central_widget()
         self._create_status_bar()
+
+        # 创建工具实例（需要在图层面板创建之后）
+        self._create_tools()
 
         # 连接信号
         self._connect_signals()
@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
             TOOL_CIRCLE: CircleTool(self.canvas),
             TOOL_BUCKET_FILL: BucketFillTool(self.canvas),
             TOOL_SELECT: SelectTool(self.canvas),
-            TOOL_TEXT: TextTool(self.canvas, self.config),
+            TOOL_TEXT: TextTool(self.canvas, self.config, self.layer_panel),
         }
         self.current_tool = None
 
@@ -520,6 +520,27 @@ class MainWindow(QMainWindow):
             self.current_tool = self.tools[tool_id]
             self.canvas_view.set_tool(self.current_tool)
 
+            # 如果切换到绘图工具（非文本工具、非选择工具），确保活动图层是位图图层
+            if tool_id not in [TOOL_TEXT, TOOL_SELECT]:
+                layer = self.canvas.get_active_layer()
+                if layer and layer.layer_type == "text":
+                    # 当前是文本图层，需要切换到位图图层
+                    # 查找最近的位图图层
+                    bitmap_layer_index = None
+                    for i in range(len(self.canvas.layers) - 1, -1, -1):
+                        if self.canvas.layers[i].layer_type == "bitmap":
+                            bitmap_layer_index = i
+                            break
+
+                    if bitmap_layer_index is not None:
+                        # 切换到找到的位图图层
+                        self.canvas.active_layer_index = bitmap_layer_index
+                        self.layer_panel.refresh_layers()
+                    else:
+                        # 没有位图图层，创建一个新的
+                        self.canvas.add_layer("Layer")
+                        self.layer_panel.refresh_layers()
+
             # 更新工具属性
             if tool_id in [TOOL_PENCIL, TOOL_ERASER]:
                 size = self.property_panel.get_brush_size()
@@ -584,6 +605,11 @@ class MainWindow(QMainWindow):
             layer_index: 新的活动图层索引
         """
         self.canvas.active_layer_index = layer_index
+
+        # 通知当前工具图层已切换
+        if self.current_tool and hasattr(self.current_tool, 'on_layer_changed'):
+            self.current_tool.on_layer_changed()
+
         self.canvas_view.update_canvas()
 
     def _on_mouse_moved(self, x: int, y: int) -> None:

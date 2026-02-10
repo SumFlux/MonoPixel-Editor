@@ -7,6 +7,7 @@ from typing import Optional
 
 from .canvas import Canvas
 from .layer import Layer
+from .text_object import TextObject
 
 
 class Project:
@@ -63,8 +64,15 @@ class Project:
                     "locked": layer.locked,
                     "width": layer.width,
                     "height": layer.height,
-                    "data": self._encode_layer_data(layer.data)
+                    "layer_type": layer.layer_type
                 }
+
+                # 根据图层类型保存数据
+                if layer.layer_type == "bitmap" and layer.data is not None:
+                    layer_data["data"] = self._encode_layer_data(layer.data)
+                elif layer.layer_type == "text" and layer.text_object:
+                    layer_data["text_object"] = layer.text_object.to_dict()
+
                 project_data["layers"].append(layer_data)
 
             # 写入文件
@@ -111,18 +119,32 @@ class Project:
 
             # 加载所有图层
             for layer_data in project_data["layers"]:
+                # 获取图层类型（向后兼容：默认为 bitmap）
+                layer_type = layer_data.get("layer_type", "bitmap")
+
                 layer = Layer(
                     layer_data["width"],
                     layer_data["height"],
-                    layer_data["name"]
+                    layer_data["name"],
+                    layer_type
                 )
                 layer.visible = layer_data.get("visible", True)
                 layer.locked = layer_data.get("locked", False)
-                layer.data = self._decode_layer_data(
-                    layer_data["data"],
-                    layer_data["width"],
-                    layer_data["height"]
-                )
+
+                # 根据图层类型加载数据
+                if layer_type == "bitmap":
+                    # 位图图层：解码位图数据
+                    if "data" in layer_data:
+                        layer.data = self._decode_layer_data(
+                            layer_data["data"],
+                            layer_data["width"],
+                            layer_data["height"]
+                        )
+                elif layer_type == "text":
+                    # 文本图层：加载文本对象
+                    if "text_object" in layer_data:
+                        layer.text_object = TextObject.from_dict(layer_data["text_object"])
+
                 self.canvas.layers.append(layer)
 
             # 设置活动图层

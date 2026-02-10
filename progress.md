@@ -407,3 +407,161 @@
 | 2026-02-09 晚上 | 选择框在左上角不跟随鼠标 | 1 | 移除 resetTransform()，直接在场景坐标系绘制 ✅ |
 | 2026-02-09 晚上 | 高缩放级别手柄消失 | 1 | 设置最小场景尺寸 0.5px，使用 QRectF ✅ |
 | 2026-02-09 晚上 | QPainter 重复 restore() | 1 | 移除重复的 restore() 调用 ✅ |
+
+---
+
+## Session: 2026-02-10
+
+### Phase 13: 用户体验改进功能
+- **Status:** complete
+- **Started:** 2026-02-10
+- **Completed:** 2026-02-10
+- Actions taken:
+  - **改进 1**: DEL 键删除选区
+    - 在 SelectTool 中添加 delete_selection() 方法
+    - 在 MainWindow.keyPressEvent() 中处理 DEL 键事件
+    - 支持撤销/重做功能
+  - **改进 2**: 字体配置保存
+    - 创建 Config 类使用 QSettings 管理配置
+    - 修改 TextInputDialog 支持加载和保存字体配置
+    - 在 MainWindow 中集成配置管理器
+  - **改进 3**: 画布尺寸编辑
+    - 创建 CanvasSizeDialog 对话框
+    - 在"图像"菜单中添加"画布大小..."选项
+    - 实现 _on_canvas_size() 方法调用现有的 Canvas.resize() 方法
+  - **改进 4**: 新建画布对话框优化
+    - 修改 _on_new() 方法使用 CanvasSizeDialog
+    - 在同一对话框中输入宽度和高度
+  - **改进 5**: 自动适应窗口
+    - 在 _on_new() 和 _on_open() 方法中添加 fit_in_view() 调用
+    - 使用 showEvent() 方法在窗口首次显示后自动适应窗口
+    - 使用 QTimer.singleShot(100, ...) 延迟调用确保窗口已完全显示
+- Files created/modified:
+  - src/core/config.py (created)
+  - src/ui/canvas_size_dialog.py (created)
+  - src/tools/select.py (modified - 添加 delete_selection 方法)
+  - src/tools/text.py (modified - 支持配置保存)
+  - src/ui/main_window.py (modified - 集成所有改进功能)
+- Git commit:
+  - ad65f91 - feat: 实现用户体验改进功能
+
+### Phase 14: 文本对象图层系统规划
+- **Status:** in_progress
+- **Started:** 2026-02-10
+- Actions taken:
+  - 创建 text_object_refactor_plan.md（文本对象图层系统重构计划）
+  - 更新 findings.md（添加文本对象图层系统研究）
+  - 分析现有代码结构（Layer, TextService, TextTool, CanvasView, Project）
+  - 设计技术方案（图层类型扩展、文本对象结构、渲染策略）
+  - 规划 9 个实施阶段
+- Files created/modified:
+  - text_object_refactor_plan.md (created)
+  - findings.md (modified)
+  - progress.md (modified - 本文件)
+
+## Test Results (2026-02-10)
+
+| Test | Input | Expected | Actual | Status |
+|------|-------|----------|--------|--------|
+| DEL 键删除选区 | 创建选区后按 DEL | 选区内容被删除 | 选区内容被删除 | ✓ |
+| 字体配置保存 | 选择字体后重启应用 | 保持上次选择 | 保持上次选择 | ✓ |
+| 画布尺寸编辑 | 图像→画布大小 | 显示对话框可编辑 | 显示对话框可编辑 | ✓ |
+| 新建画布对话框 | 文件→新建 | 同一对话框输入宽高 | 同一对话框输入宽高 | ✓ |
+| 首次打开自动适应 | 启动应用 | 画布自动适应窗口 | 画布自动适应窗口 | ✓ |
+| 新建画布自动适应 | 新建画布 | 画布自动适应窗口 | 画布自动适应窗口 | ✓ |
+| 打开项目自动适应 | 打开项目 | 画布自动适应窗口 | 画布自动适应窗口 | ✓ |
+
+## 5-Question Reboot Check (2026-02-10)
+
+| Question | Answer |
+|----------|--------|
+| Where am I? | Phase 14 - 文本对象图层系统规划（规划文件已创建） |
+| Where am I going? | 实现文本对象图层系统，支持文本自动换行、字间距、行间距控制 |
+| What's the goal? | 扩展图层系统支持可编辑的文本对象，提升文本编辑体验 |
+| What have I learned? | 见 findings.md - 文本对象图层系统技术方案、渲染策略、向后兼容设计 |
+| What have I done? | 完成 6 项用户体验改进，创建文本对象图层系统重构计划 |
+
+---
+
+*更新时间：2026-02-10*
+*项目状态：用户体验改进完成，开始文本对象图层系统重构*
+
+---
+
+## Session: 2026-02-10 (继续)
+
+### Phase 15: 文本对象图层系统实施
+- **Status:** complete
+- **Started:** 2026-02-10
+- **Completed:** 2026-02-10
+- Actions taken:
+  - **Phase 1**: 扩展图层系统
+    - 创建 TextObject 类 (src/core/text_object.py)
+    - 扩展 Layer 类支持 layer_type 和 text_object
+    - 更新 Canvas 类添加 add_text_layer() 方法
+  - **Phase 2**: 文本渲染增强
+    - 扩展 TextService.render_text() 支持 max_width、letter_spacing、line_spacing
+    - 实现文本自动换行算法（贪心算法）
+    - 添加辅助方法：_wrap_text()、_calculate_char_width()、_render_single_line()、_render_multiline()
+  - **Phase 3**: 文本工具重构
+    - 扩展 TextInputDialog 添加最大宽度、字间距、行间距输入框
+    - 修改 TextTool 创建文本对象图层而非直接栅格化
+    - 支持拖拽移动和双击编辑文本对象
+  - **Phase 4**: 扩展 Config 类
+    - 添加保存/加载最大宽度、字间距、行间距的方法
+    - 更新 TextInputDialog 加载和保存这些配置
+  - **Phase 6**: 渲染系统更新
+    - 修改 CanvasView.update_canvas() 方法
+    - 检测图层类型，文本图层调用 TextService 渲染
+    - 将渲染的文本位图正确合并到画布上
+  - **Phase 7**: 项目保存/加载
+    - 修改 Project 类的序列化方法支持文本对象
+    - 支持保存文本对象到 JSON
+    - 支持从 JSON 加载文本对象
+    - 完全向后兼容（旧项目文件默认为位图图层）
+  - **Bug 修复**:
+    - 修复切换到绘图工具时崩溃的问题（BaseTool 检查图层类型）
+    - 修复切换工具时自动切换到位图图层的逻辑
+    - 修复图层面板不自动刷新的问题（TextTool 传递 layer_panel 参数）
+    - 修复初始化顺序问题（先创建 UI 再创建工具）
+    - 修复切换图层后文本重影的问题（添加 on_layer_changed 方法）
+    - 将 Enter 键编辑改为双击编辑（添加 mouseDoubleClickEvent）
+- Files created/modified:
+  - src/core/text_object.py (created)
+  - src/core/layer.py (modified)
+  - src/core/canvas.py (modified)
+  - src/services/text_service.py (modified)
+  - src/tools/text.py (modified)
+  - src/core/config.py (modified)
+  - src/ui/canvas_view.py (modified)
+  - src/core/project.py (modified)
+  - src/tools/base_tool.py (modified)
+  - src/ui/main_window.py (modified)
+
+## Test Results (2026-02-10 - 文本对象图层系统)
+
+| Test | Input | Expected | Actual | Status |
+|------|-------|----------|--------|--------|
+| 创建文本对象 | 输入 "Hello World" | 文本显示，图层面板显示 Text 1 | 文本显示，图层面板显示 Text 1 | ✓ |
+| 文本自动换行 | 最大宽度 150px，长文本 | 文本自动换行 | 文本自动换行 | ✓ |
+| 字间距和行间距 | 字间距 5px，行间距 8px | 字符和行间距增加 | 字符和行间距增加 | ✓ |
+| 双击编辑文本 | 双击文本区域 | 弹出编辑对话框 | 弹出编辑对话框 | ✓ |
+| 拖拽移动文本 | 点击拖拽文本 | 文本跟随鼠标移动 | 文本跟随鼠标移动 | ✓ |
+| 切换图层不重影 | 创建两个文本，切换图层后移动 | 不出现重影 | 不出现重影 | ✓ |
+| 切换工具不崩溃 | 创建文本后切换到画笔 | 不崩溃，自动切换到位图层 | 不崩溃，自动切换到位图层 | ✓ |
+| 保存和加载项目 | 保存包含文本对象的项目 | 文本对象正确恢复 | 文本对象正确恢复 | ✓ |
+
+## 5-Question Reboot Check (2026-02-10 - 完成后)
+
+| Question | Answer |
+|----------|--------|
+| Where am I? | Phase 15 - 文本对象图层系统实施（已完成） |
+| Where am I going? | 所有核心功能已完成，准备提交代码 |
+| What's the goal? | 实现可编辑的文本对象图层系统，支持自动换行、字间距、行间距 |
+| What have I learned? | 见 findings.md - 图层类型扩展、文本渲染增强、向后兼容设计 |
+| What have I done? | 完成文本对象图层系统的所有 7 个关键阶段，修复所有测试中发现的 bug |
+
+---
+
+*更新时间：2026-02-10*
+*项目状态：文本对象图层系统完成，所有测试通过*

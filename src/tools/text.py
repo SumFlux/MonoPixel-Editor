@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QInputDialog, QFileDialog, QDialog, QVBoxLayout, QHB
 from .base_tool import BaseTool
 from ..services.text_service import TextService
 from ..services.font_manager import FontManager
+from ..core.text_object import TextObject
 import numpy as np
 import os
 
@@ -49,6 +50,37 @@ class TextInputDialog(QDialog):
         size_layout.addWidget(self.size_spin)
         layout.addLayout(size_layout)
 
+        # 最大宽度输入
+        max_width_layout = QHBoxLayout()
+        max_width_layout.addWidget(QLabel("最大宽度:"))
+        self.max_width_spin = QSpinBox()
+        self.max_width_spin.setRange(0, 9999)
+        self.max_width_spin.setValue(0)
+        self.max_width_spin.setSpecialValueText("不限制")
+        max_width_layout.addWidget(self.max_width_spin)
+        max_width_layout.addWidget(QLabel("像素"))
+        layout.addLayout(max_width_layout)
+
+        # 字间距输入
+        letter_spacing_layout = QHBoxLayout()
+        letter_spacing_layout.addWidget(QLabel("字间距:"))
+        self.letter_spacing_spin = QSpinBox()
+        self.letter_spacing_spin.setRange(0, 50)
+        self.letter_spacing_spin.setValue(0)
+        letter_spacing_layout.addWidget(self.letter_spacing_spin)
+        letter_spacing_layout.addWidget(QLabel("像素"))
+        layout.addLayout(letter_spacing_layout)
+
+        # 行间距输入
+        line_spacing_layout = QHBoxLayout()
+        line_spacing_layout.addWidget(QLabel("行间距:"))
+        self.line_spacing_spin = QSpinBox()
+        self.line_spacing_spin.setRange(0, 50)
+        self.line_spacing_spin.setValue(0)
+        line_spacing_layout.addWidget(self.line_spacing_spin)
+        line_spacing_layout.addWidget(QLabel("像素"))
+        layout.addLayout(line_spacing_layout)
+
         # 按钮
         button_layout = QHBoxLayout()
         ok_btn = QPushButton("确定")
@@ -88,9 +120,17 @@ class TextInputDialog(QDialog):
         last_font = self.config.get_last_font_name()
         last_size = self.config.get_last_font_size()
         last_custom_path = self.config.get_last_custom_font_path()
+        last_max_width = self.config.get_last_max_width()
+        last_letter_spacing = self.config.get_last_letter_spacing()
+        last_line_spacing = self.config.get_last_line_spacing()
 
         # 设置字号
         self.size_spin.setValue(last_size)
+
+        # 设置最大宽度、字间距、行间距
+        self.max_width_spin.setValue(last_max_width)
+        self.letter_spacing_spin.setValue(last_letter_spacing)
+        self.line_spacing_spin.setValue(last_line_spacing)
 
         # 如果有自定义字体路径，加载它
         if last_custom_path and os.path.exists(last_custom_path):
@@ -109,6 +149,9 @@ class TextInputDialog(QDialog):
         if self.config:
             self.config.set_last_font_name(self.font_combo.currentText())
             self.config.set_last_font_size(self.size_spin.value())
+            self.config.set_last_max_width(self.max_width_spin.value())
+            self.config.set_last_letter_spacing(self.letter_spacing_spin.value())
+            self.config.set_last_line_spacing(self.line_spacing_spin.value())
             if self.custom_font_path:
                 self.config.set_last_custom_font_path(self.custom_font_path)
         super().accept()
@@ -119,23 +162,28 @@ class TextInputDialog(QDialog):
             'text': self.text_edit.text(),
             'font_name': self.font_combo.currentText(),
             'font_size': self.size_spin.value(),
-            'custom_font_path': self.custom_font_path
+            'custom_font_path': self.custom_font_path,
+            'max_width': self.max_width_spin.value(),
+            'letter_spacing': self.letter_spacing_spin.value(),
+            'line_spacing': self.line_spacing_spin.value()
         }
 
 
 class TextTool(BaseTool):
     """文本工具"""
 
-    def __init__(self, canvas, config=None):
+    def __init__(self, canvas, config=None, layer_panel=None):
         """
         初始化文本工具
 
         Args:
             canvas: 画布对象
             config: 配置管理器
+            layer_panel: 图层面板（用于刷新）
         """
         super().__init__(canvas)
         self.config = config
+        self.layer_panel = layer_panel
         self.font_manager = FontManager()
         self.text_service = TextService(self.font_manager)
         self.current_font = QFont("Arial", 16)
@@ -158,13 +206,19 @@ class TextTool(BaseTool):
                 px, py = self.preview_pos
                 self.drag_offset = (x - px, y - py)
             else:
-                # 点击在文本外，先栅格化当前文本并取消选择
-                self._rasterize_text()
+                # 点击在文本外，完成当前文本编辑
                 self.reset()
                 # 不立即开始新的文本输入，等待下次点击
         else:
             # 开始新的文本输入
             self._start_new_text(x, y)
+
+    def on_double_click(self, x: int, y: int) -> None:
+        """鼠标双击事件"""
+        # 如果双击在文本区域内，进入编辑模式
+        if self.is_editing and self.text_preview is not None:
+            if self._is_point_in_text(x, y):
+                self._edit_text()
 
     def _start_new_text(self, x: int, y: int) -> None:
         """开始新的文本输入"""
@@ -183,25 +237,52 @@ class TextTool(BaseTool):
             # 设置字体
             font_name = values['font_name']
             font_size = values['font_size']
+            max_width = values['max_width']
+            letter_spacing = values['letter_spacing']
+            line_spacing = values['line_spacing']
 
             # 如果是自定义字体，加载它
-            if values['custom_font_path']:
-                loaded_font = self.font_manager.load_custom_font(values['custom_font_path'])
+            custom_font_path = values['custom_font_path'] if values['custom_font_path'] else ""
+            if custom_font_path:
+                loaded_font = self.font_manager.load_custom_font(custom_font_path)
                 if loaded_font:
                     font_name = loaded_font
 
-            # 创建字体对象，使用像素大小
-            self.current_font = QFont(font_name)
-            self.current_font.setPixelSize(font_size)
-            self.current_text = text
+            # 创建文本对象
+            text_object = TextObject(
+                text=text,
+                font_name=font_name,
+                font_size=font_size,
+                position=(x, y),
+                max_width=max_width,
+                letter_spacing=letter_spacing,
+                line_spacing=line_spacing,
+                custom_font_path=custom_font_path
+            )
 
-            # 渲染文本
+            # 创建文本图层
+            text_layer = self.canvas.add_text_layer(text_object)
+
+            # 刷新图层面板
+            if self.layer_panel:
+                self.layer_panel.refresh_layers()
+
+            # 渲染文本预览（用于显示）
             try:
+                self.current_font = QFont(font_name)
+                self.current_font.setPixelSize(font_size)
+                self.current_text = text
+
                 text_bitmap = self.text_service.render_text(
-                    text, self.current_font, self.squeeze_halfwidth
+                    text,
+                    self.current_font,
+                    self.squeeze_halfwidth,
+                    max_width,
+                    letter_spacing,
+                    line_spacing
                 )
 
-                # 保存预览
+                # 保存预览（用于显示边框）
                 self.text_preview = text_bitmap
                 self.preview_pos = (x, y)
                 self.is_editing = True
@@ -209,6 +290,8 @@ class TextTool(BaseTool):
 
             except Exception as e:
                 print(f"文本渲染失败: {e}")
+                # 删除刚创建的图层
+                self.canvas.remove_layer(len(self.canvas.layers) - 1)
                 self.reset()
         else:
             self.reset()
@@ -217,7 +300,14 @@ class TextTool(BaseTool):
         """鼠标拖拽（移动文本位置）"""
         if self.is_editing and self.text_preview is not None and self.is_drawing:
             # 使用拖拽偏移量
-            self.preview_pos = (x - self.drag_offset[0], y - self.drag_offset[1])
+            new_x = x - self.drag_offset[0]
+            new_y = y - self.drag_offset[1]
+            self.preview_pos = (new_x, new_y)
+
+            # 更新文本对象的位置
+            layer = self.canvas.get_active_layer()
+            if layer and layer.layer_type == "text" and layer.text_object:
+                layer.text_object.position = (new_x, new_y)
 
     def on_release(self, x: int, y: int, modifiers: Qt.KeyboardModifier) -> None:
         """鼠标释放"""
@@ -246,12 +336,16 @@ class TextTool(BaseTool):
             if not text:
                 return
 
-            # 更新字体
+            # 更新字体和参数
             font_name = values['font_name']
             font_size = values['font_size']
+            max_width = values['max_width']
+            letter_spacing = values['letter_spacing']
+            line_spacing = values['line_spacing']
+            custom_font_path = values['custom_font_path'] if values['custom_font_path'] else ""
 
-            if values['custom_font_path']:
-                loaded_font = self.font_manager.load_custom_font(values['custom_font_path'])
+            if custom_font_path:
+                loaded_font = self.font_manager.load_custom_font(custom_font_path)
                 if loaded_font:
                     font_name = loaded_font
 
@@ -259,10 +353,26 @@ class TextTool(BaseTool):
             self.current_font.setPixelSize(font_size)
             self.current_text = text
 
-            # 重新渲染
+            # 更新文本对象
+            layer = self.canvas.get_active_layer()
+            if layer and layer.layer_type == "text" and layer.text_object:
+                layer.text_object.text = text
+                layer.text_object.font_name = font_name
+                layer.text_object.font_size = font_size
+                layer.text_object.max_width = max_width
+                layer.text_object.letter_spacing = letter_spacing
+                layer.text_object.line_spacing = line_spacing
+                layer.text_object.custom_font_path = custom_font_path
+
+            # 重新渲染预览
             try:
                 text_bitmap = self.text_service.render_text(
-                    text, self.current_font, self.squeeze_halfwidth
+                    text,
+                    self.current_font,
+                    self.squeeze_halfwidth,
+                    max_width,
+                    letter_spacing,
+                    line_spacing
                 )
                 self.text_preview = text_bitmap
             except Exception as e:
@@ -345,9 +455,14 @@ class TextTool(BaseTool):
 
     def finalize(self) -> None:
         """完成文本编辑（切换工具时调用）"""
-        if self.is_editing and self.text_preview is not None:
-            self._rasterize_text()
+        # 文本对象已经保存在图层中，不需要栅格化
         self.reset()
+
+    def on_layer_changed(self) -> None:
+        """图层切换时调用，清除预览状态"""
+        # 如果当前有文本预览，清除它
+        if self.is_editing:
+            self.reset()
 
     def set_squeeze_halfwidth(self, squeeze: bool) -> None:
         """

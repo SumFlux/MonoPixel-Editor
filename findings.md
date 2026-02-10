@@ -215,6 +215,92 @@ src/
 
 ---
 
+## 文本对象图层系统研究（2026-02-10）
+
+### 当前文本系统分析
+
+**现有实现**:
+- `Layer` 类只支持位图数据 (`np.ndarray`)
+- `TextTool` 将文本直接栅格化到位图图层
+- `TextService` 提供文本到位图的转换，支持半角字符挤压
+- 文本一旦栅格化就无法再次编辑
+
+**用户需求**:
+1. 文本自动换行（按最大宽度）
+2. 字间距控制
+3. 行间距控制
+4. 保持文本可编辑性
+
+### 技术方案设计
+
+**1. 图层类型扩展**:
+```python
+class Layer:
+    def __init__(self, layer_type: str = "bitmap"):
+        self.layer_type = layer_type  # 'bitmap' | 'text'
+        self.data = np.ndarray if bitmap else None
+        self.text_object = TextObject if text else None
+```
+
+**2. 文本对象结构**:
+```python
+class TextObject:
+    text: str
+    font_name: str
+    font_size: int
+    position: (x, y)
+    max_width: int  # 0 = 不限制
+    letter_spacing: int  # 字间距（像素）
+    line_spacing: int  # 行间距（像素）
+    custom_font_path: str
+```
+
+**3. 文本自动换行算法**:
+- 使用贪心算法，逐字符累加宽度
+- 超过 max_width 时换行
+- 简单高效，适合像素画编辑器
+
+**4. 渲染策略**:
+- 按需渲染 + 缓存
+- 文本对象属性变化时重新渲染
+- 缓存渲染结果提升性能
+
+**5. 向后兼容**:
+- 旧项目文件自动识别为位图图层
+- 使用 `layer_data.get("layer_type", "bitmap")` 提供默认值
+- 不破坏现有功能
+
+### 实施阶段
+
+1. **Phase 1**: 创建 `TextObject` 类，扩展 `Layer` 和 `Canvas`
+2. **Phase 2**: 扩展 `TextService` 支持换行、字间距、行间距
+3. **Phase 3**: 修改 `TextTool` 创建文本对象图层
+4. **Phase 4**: 扩展 `TextInputDialog` 添加新参数
+5. **Phase 5**: 属性面板集成（可选）
+6. **Phase 6**: 修改 `CanvasView` 渲染逻辑
+7. **Phase 7**: 修改 `Project` 序列化/反序列化
+8. **Phase 8**: 添加栅格化功能
+9. **Phase 9**: 测试和优化
+
+### 关键决策
+
+| 决策 | 理由 |
+|------|------|
+| 使用类型标记而非继承 | 保持兼容性，避免大规模重构 |
+| 创建独立的 TextObject 类 | 松耦合，易于序列化 |
+| 按需渲染 + 缓存 | 平衡性能和实时性 |
+| 完全向后兼容 | 不破坏现有项目文件 |
+
+### 风险评估
+
+| 风险 | 影响 | 缓解措施 |
+|------|------|----------|
+| 渲染性能下降 | 中 | 实现渲染缓存 |
+| 项目文件不兼容 | 高 | 严格测试序列化 |
+| UI 复杂度增加 | 中 | 渐进式实现 |
+
+---
+
 *所有核心功能已完成并测试通过*
 *项目已达到 v1.0.0 发布标准*
-*下一步：完善打包教程文档*
+*下一步：实现文本对象图层系统*

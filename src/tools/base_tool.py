@@ -27,7 +27,7 @@ class BaseTool(ABC):
     def begin_draw(self) -> None:
         """开始绘制（保存当前图层状态）"""
         layer = self.canvas.get_active_layer()
-        if layer:
+        if layer and layer.layer_type == "bitmap" and layer.data is not None:
             self.old_layer_data = layer.data.copy()
 
     def end_draw(self) -> Optional[tuple[np.ndarray, np.ndarray]]:
@@ -38,7 +38,7 @@ class BaseTool(ABC):
             (old_data, new_data) 或 None
         """
         layer = self.canvas.get_active_layer()
-        if layer and self.old_layer_data is not None:
+        if layer and layer.layer_type == "bitmap" and layer.data is not None and self.old_layer_data is not None:
             new_data = layer.data.copy()
             old_data = self.old_layer_data
             self.old_layer_data = None
@@ -84,6 +84,15 @@ class BaseTool(ABC):
 
         Args:
             key: 按键
+        """
+        pass
+
+    def on_double_click(self, x: int, y: int) -> None:
+        """
+        鼠标双击事件
+
+        Args:
+            x, y: 画布坐标
         """
         pass
 

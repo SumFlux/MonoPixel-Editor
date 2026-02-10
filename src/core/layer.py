@@ -1,12 +1,13 @@
 """图层数据模型"""
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Optional
+from .text_object import TextObject
 
 
 class Layer:
     """单个图层类"""
 
-    def __init__(self, width: int, height: int, name: str = "Layer"):
+    def __init__(self, width: int, height: int, name: str = "Layer", layer_type: str = "bitmap"):
         """
         初始化图层
 
@@ -14,11 +15,14 @@ class Layer:
             width: 图层宽度
             height: 图层高度
             name: 图层名称
+            layer_type: 图层类型 ('bitmap' | 'text')
         """
         self.name = name
         self.width = width
         self.height = height
-        self.data = np.zeros((height, width), dtype=bool)
+        self.layer_type = layer_type
+        self.data = np.zeros((height, width), dtype=bool) if layer_type == "bitmap" else None
+        self.text_object: Optional[TextObject] = None
         self.visible = True
         self.locked = False
 
@@ -60,8 +64,13 @@ class Layer:
         Returns:
             新的图层对象
         """
-        new_layer = Layer(self.width, self.height, f"{self.name} Copy")
-        new_layer.data = self.data.copy()
+        new_layer = Layer(self.width, self.height, f"{self.name} Copy", self.layer_type)
+
+        if self.layer_type == "bitmap":
+            new_layer.data = self.data.copy()
+        elif self.layer_type == "text" and self.text_object:
+            new_layer.text_object = self.text_object.copy()
+
         new_layer.visible = self.visible
         new_layer.locked = self.locked
         return new_layer

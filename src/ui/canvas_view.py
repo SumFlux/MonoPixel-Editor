@@ -1,11 +1,13 @@
 """画布视图组件"""
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QGraphicsLineItem
 from PyQt6.QtCore import Qt, QPointF, QRectF, pyqtSignal, QLineF
-from PyQt6.QtGui import QPixmap, QImage, QPainter, QPen, QColor, QWheelEvent, QMouseEvent, QBrush
+from PyQt6.QtGui import QPixmap, QImage, QPainter, QPen, QColor, QWheelEvent, QMouseEvent, QBrush, QFont
 import numpy as np
 from typing import Optional, List
 
 from ..core.canvas import Canvas
+from ..services.text_service import TextService
+from ..services.font_manager import FontManager
 from ..utils.constants import MIN_ZOOM, MAX_ZOOM, ZOOM_STEP, GRID_COLOR
 
 
@@ -34,6 +36,10 @@ class CanvasView(QGraphicsView):
         # 网格线项
         self.grid_lines: List[QGraphicsLineItem] = []
 
+        # 文本渲染服务
+        self.font_manager = FontManager()
+        self.text_service = TextService(self.font_manager)
+
         # 视图设置
         self.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
@@ -61,8 +67,64 @@ class CanvasView(QGraphicsView):
         Args:
             show_preview: 是否显示工具预览
         """
-        # 合并所有可见图层
-        merged_data = self.canvas.merge_visible_layers()
+        # 创建合并后的画布数据
+        merged_data = np.zeros((self.canvas.height, self.canvas.width), dtype=bool)
+
+        # 从下到上依次叠加图层
+        for layer in self.canvas.layers:
+            if not layer.visible:
+                continue
+
+            if layer.layer_type == "bitmap" and layer.data is not None:
+                # 位图图层：直接叠加
+                merged_data = np.logical_or(merged_data, layer.data)
+
+            elif layer.layer_type == "text" and layer.text_object:
+                # 文本图层：渲染文本对象
+                text_obj = layer.text_object
+                try:
+                    # 创建字体
+                    font = QFont(text_obj.font_name)
+                    font.setPixelSize(text_obj.font_size)
+
+                    # 如果有自定义字体路径，加载它
+                    if text_obj.custom_font_path:
+                        self.font_manager.load_custom_font(text_obj.custom_font_path)
+
+                    # 渲染文本
+                    text_bitmap = self.text_service.render_text(
+                        text_obj.text,
+                        font,
+                        squeeze_halfwidth=True,
+                        max_width=text_obj.max_width,
+                        letter_spacing=text_obj.letter_spacing,
+                        line_spacing=text_obj.line_spacing
+                    )
+
+                    # 将文本位图叠加到画布上
+                    px, py = text_obj.position
+                    text_h, text_w = text_bitmap.shape
+
+                    # 计算有效区域
+                    x1 = max(0, px)
+                    y1 = max(0, py)
+                    x2 = min(self.canvas.width, px + text_w)
+                    y2 = min(self.canvas.height, py + text_h)
+
+                    # 计算文本位图的有效区域
+                    text_x1 = max(0, -px)
+                    text_y1 = max(0, -py)
+                    text_x2 = text_x1 + (x2 - x1)
+                    text_y2 = text_y1 + (y2 - y1)
+
+                    if x2 > x1 and y2 > y1:
+                        merged_data[y1:y2, x1:x2] = np.logical_or(
+                            merged_data[y1:y2, x1:x2],
+                            text_bitmap[text_y1:text_y2, text_x1:text_x2]
+                        )
+
+                except Exception as e:
+                    print(f"渲染文本对象失败: {e}")
 
         # 如果有工具预览，叠加预览点
         if show_preview and self.current_tool:
@@ -175,6 +237,24 @@ class CanvasView(QGraphicsView):
             event.accept()
         else:
             super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        """
+        鼠标双击事件
+
+        Args:
+            event: 鼠标事件
+        """
+        # 左键双击使用工具的双击处理
+        if event.button() == Qt.MouseButton.LeftButton and self.current_tool:
+            scene_pos = self.mapToScene(event.pos())
+            x, y = self.scene_to_canvas(scene_pos)
+            if hasattr(self.current_tool, 'on_double_click'):
+                self.current_tool.on_double_click(x, y)
+                self.update_canvas(show_preview=True)
+            event.accept()
+        else:
+            super().mouseDoubleClickEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """
