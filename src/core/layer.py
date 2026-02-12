@@ -55,7 +55,8 @@ class Layer:
 
     def clear(self) -> None:
         """清空图层"""
-        self.data.fill(False)
+        if self.data is not None:
+            self.data.fill(False)
 
     def copy(self) -> 'Layer':
         """

@@ -26,6 +26,9 @@ class LayerPanel(QDockWidget):
         self.canvas = canvas
         self.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea)
 
+        # 设置最小宽度，确保内容显示完整
+        self.setMinimumWidth(280)
+
         # 创建主部件
         main_widget = QWidget()
         layout = QVBoxLayout(main_widget)

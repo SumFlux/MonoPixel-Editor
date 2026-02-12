@@ -4,10 +4,13 @@ import base64
 import numpy as np
 from pathlib import Path
 from typing import Optional
+import logging
 
 from .canvas import Canvas
 from .layer import Layer
 from .text_object import TextObject
+
+logger = logging.getLogger(__name__)
 
 
 class Project:
@@ -82,8 +85,14 @@ class Project:
             self.modified = False
             return True
 
+        except PermissionError as e:
+            logger.error(f"保存项目失败 - 权限不足: {e}")
+            return False
+        except IOError as e:
+            logger.error(f"保存项目失败 - IO错误: {e}")
+            return False
         except Exception as e:
-            print(f"保存项目失败: {e}")
+            logger.error(f"保存项目失败 - 未知错误: {e}")
             return False
 
     def load(self, file_path: str) -> bool:
@@ -101,15 +110,53 @@ class Project:
             with open(file_path, "r", encoding="utf-8") as f:
                 project_data = json.load(f)
 
+        except FileNotFoundError:
+            logger.error(f"加载项目失败 - 文件不存在: {file_path}")
+            return False
+        except PermissionError:
+            logger.error(f"加载项目失败 - 权限不足: {file_path}")
+            return False
+        except json.JSONDecodeError as e:
+            logger.error(f"加载项目失败 - JSON 解析错误: {e}")
+            return False
+        except IOError as e:
+            logger.error(f"加载项目失败 - IO错误: {e}")
+            return False
+
+        try:
+            # 验证数据结构
+            if not isinstance(project_data, dict):
+                logger.error("加载项目失败 - 根对象不是字典")
+                return False
+
+            if "canvas" not in project_data:
+                logger.error("加载项目失败 - 缺少 canvas 字段")
+                return False
+
+            if "layers" not in project_data:
+                logger.error("加载项目失败 - 缺少 layers 字段")
+                return False
+
             # 检查版本
             version = project_data.get("version", "1.0")
             if version != self.VERSION:
-                print(f"警告: 项目版本不匹配 (文件: {version}, 当前: {self.VERSION})")
+                logger.warning(f"项目版本不匹配 (文件: {version}, 当前: {self.VERSION})")
 
             # 加载画布设置
             canvas_data = project_data["canvas"]
-            width = canvas_data["width"]
-            height = canvas_data["height"]
+            if not isinstance(canvas_data, dict):
+                logger.error("加载项目失败 - canvas 字段不是字典")
+                return False
+
+            # 验证画布尺寸
+            width = canvas_data.get("width")
+            height = canvas_data.get("height")
+            if not isinstance(width, int) or not isinstance(height, int):
+                logger.error("加载项目失败 - 画布尺寸类型错误")
+                return False
+            if width <= 0 or height <= 0 or width > 10000 or height > 10000:
+                logger.error(f"加载项目失败 - 画布尺寸超出范围: {width}x{height}")
+                return False
 
             # 重新创建画布
             self.canvas.width = width
@@ -117,35 +164,59 @@ class Project:
             self.canvas.grid_visible = canvas_data.get("grid_visible", True)
             self.canvas.layers.clear()
 
+            # 验证图层数据
+            layers_data = project_data["layers"]
+            if not isinstance(layers_data, list):
+                logger.error("加载项目失败 - layers 字段不是列表")
+                return False
+
             # 加载所有图层
-            for layer_data in project_data["layers"]:
+            for i, layer_data in enumerate(layers_data):
+                if not isinstance(layer_data, dict):
+                    logger.warning(f"跳过图层 {i} - 不是字典")
+                    continue
+
+                # 验证必需字段
+                if "width" not in layer_data or "height" not in layer_data or "name" not in layer_data:
+                    logger.warning(f"跳过图层 {i} - 缺少必需字段")
+                    continue
+
                 # 获取图层类型（向后兼容：默认为 bitmap）
                 layer_type = layer_data.get("layer_type", "bitmap")
 
-                layer = Layer(
-                    layer_data["width"],
-                    layer_data["height"],
-                    layer_data["name"],
-                    layer_type
-                )
-                layer.visible = layer_data.get("visible", True)
-                layer.locked = layer_data.get("locked", False)
+                try:
+                    layer = Layer(
+                        layer_data["width"],
+                        layer_data["height"],
+                        layer_data["name"],
+                        layer_type
+                    )
+                    layer.visible = layer_data.get("visible", True)
+                    layer.locked = layer_data.get("locked", False)
 
-                # 根据图层类型加载数据
-                if layer_type == "bitmap":
-                    # 位图图层：解码位图数据
-                    if "data" in layer_data:
-                        layer.data = self._decode_layer_data(
-                            layer_data["data"],
-                            layer_data["width"],
-                            layer_data["height"]
-                        )
-                elif layer_type == "text":
-                    # 文本图层：加载文本对象
-                    if "text_object" in layer_data:
-                        layer.text_object = TextObject.from_dict(layer_data["text_object"])
+                    # 根据图层类型加载数据
+                    if layer_type == "bitmap":
+                        # 位图图层：解码位图数据
+                        if "data" in layer_data:
+                            layer.data = self._decode_layer_data(
+                                layer_data["data"],
+                                layer_data["width"],
+                                layer_data["height"]
+                            )
+                    elif layer_type == "text":
+                        # 文本图层：加载文本对象
+                        if "text_object" in layer_data:
+                            layer.text_object = TextObject.from_dict(layer_data["text_object"])
 
-                self.canvas.layers.append(layer)
+                    self.canvas.layers.append(layer)
+                except Exception as e:
+                    logger.warning(f"跳过图层 {i} - 加载失败: {e}")
+                    continue
+
+            # 确保至少有一个图层
+            if len(self.canvas.layers) == 0:
+                logger.error("加载项目失败 - 没有有效的图层")
+                return False
 
             # 设置活动图层
             self.canvas.active_layer_index = canvas_data.get("active_layer_index", 0)
@@ -156,10 +227,11 @@ class Project:
 
             self.file_path = file_path
             self.modified = False
+            logger.info(f"成功加载项目: {file_path}")
             return True
 
         except Exception as e:
-            print(f"加载项目失败: {e}")
+            logger.error(f"加载项目失败 - 未知错误: {e}")
             return False
 
     @staticmethod

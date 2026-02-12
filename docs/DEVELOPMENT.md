@@ -371,8 +371,8 @@ class History:
 {
     "version": "1.0",
     "canvas": {
-        "width": 212,
-        "height": 104
+        "width": 104,
+        "height": 212
     },
     "layers": [
         {

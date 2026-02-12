@@ -3,8 +3,14 @@ import numpy as np
 from typing import Optional, Tuple
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCursor, QPainter, QPen, QColor
+import logging
 from .base_tool import BaseTool
 from ..core.canvas import Canvas
+
+logger = logging.getLogger(__name__)
+
+# 最大选区尺寸限制
+MAX_SIZE = 10000
 
 
 class SelectTool(BaseTool):
@@ -384,6 +390,14 @@ class SelectTool(BaseTool):
 
         if target_width <= 0 or target_height <= 0:
             return data
+
+        # 检查目标尺寸是否过大
+        if target_width > MAX_SIZE or target_height > MAX_SIZE:
+            logger.warning(f"目标尺寸过大 ({target_width}x{target_height})，限制在 {MAX_SIZE}x{MAX_SIZE}")
+            # 等比例缩放到最大尺寸
+            scale = min(MAX_SIZE / target_width, MAX_SIZE / target_height)
+            target_width = int(target_width * scale)
+            target_height = int(target_height * scale)
 
         # 最近邻插值
         result = np.zeros((target_height, target_width), dtype=bool)

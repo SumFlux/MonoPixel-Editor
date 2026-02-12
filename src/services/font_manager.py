@@ -2,6 +2,9 @@
 from PyQt6.QtGui import QFontDatabase, QFont
 from typing import List, Optional
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FontManager:
@@ -47,11 +50,44 @@ class FontManager:
         Returns:
             字体名称，如果加载失败则返回 None
         """
-        if not os.path.exists(font_path):
+        # 安全验证：规范化路径
+        try:
+            normalized_path = os.path.normpath(os.path.abspath(font_path))
+        except Exception as e:
+            logger.error(f"路径规范化失败: {e}")
             return None
 
-        font_id = QFontDatabase.addApplicationFont(font_path)
+        # 验证文件存在
+        if not os.path.exists(normalized_path):
+            logger.warning(f"字体文件不存在: {normalized_path}")
+            return None
+
+        # 验证是文件而非目录
+        if not os.path.isfile(normalized_path):
+            logger.error(f"路径不是文件: {normalized_path}")
+            return None
+
+        # 验证文件扩展名（只允许 .ttf 和 .otf）
+        _, ext = os.path.splitext(normalized_path)
+        if ext.lower() not in ['.ttf', '.otf']:
+            logger.error(f"不支持的字体格式: {ext}")
+            return None
+
+        # 验证文件大小（限制 10MB）
+        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+        try:
+            file_size = os.path.getsize(normalized_path)
+            if file_size > MAX_FILE_SIZE:
+                logger.error(f"字体文件过大: {file_size} bytes (最大 {MAX_FILE_SIZE} bytes)")
+                return None
+        except OSError as e:
+            logger.error(f"无法获取文件大小: {e}")
+            return None
+
+        # 加载字体
+        font_id = QFontDatabase.addApplicationFont(normalized_path)
         if font_id == -1:
+            logger.error(f"字体加载失败: {normalized_path}")
             return None
 
         # 获取字体名称
@@ -61,10 +97,12 @@ class FontManager:
             self.custom_fonts.append({
                 'id': font_id,
                 'name': font_name,
-                'path': font_path
+                'path': normalized_path
             })
+            logger.info(f"成功加载字体: {font_name} ({normalized_path})")
             return font_name
 
+        logger.error(f"无法获取字体名称: {normalized_path}")
         return None
 
     def get_custom_fonts(self) -> List[dict]:

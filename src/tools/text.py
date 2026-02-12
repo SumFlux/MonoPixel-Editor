@@ -8,6 +8,9 @@ from ..services.font_manager import FontManager
 from ..core.text_object import TextObject
 import numpy as np
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TextInputDialog(QDialog):
@@ -97,7 +100,7 @@ class TextInputDialog(QDialog):
         if self.config:
             self._load_config()
 
-    def load_custom_font(self):
+    def load_custom_font(self) -> None:
         """加载自定义字体"""
         # 默认打开 fonts 文件夹
         fonts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "fonts")
@@ -115,7 +118,7 @@ class TextInputDialog(QDialog):
             self.font_combo.addItem(font_name)
             self.font_combo.setCurrentText(font_name)
 
-    def _load_config(self):
+    def _load_config(self) -> None:
         """加载配置"""
         last_font = self.config.get_last_font_name()
         last_size = self.config.get_last_font_size()
@@ -144,7 +147,7 @@ class TextInputDialog(QDialog):
             if index >= 0:
                 self.font_combo.setCurrentIndex(index)
 
-    def accept(self):
+    def accept(self) -> None:
         """保存配置并关闭对话框"""
         if self.config:
             self.config.set_last_font_name(self.font_combo.currentText())
@@ -156,7 +159,7 @@ class TextInputDialog(QDialog):
                 self.config.set_last_custom_font_path(self.custom_font_path)
         super().accept()
 
-    def get_values(self):
+    def get_values(self) -> dict:
         """获取输入值"""
         return {
             'text': self.text_edit.text(),
@@ -289,7 +292,7 @@ class TextTool(BaseTool):
                 self.is_drawing = False
 
             except Exception as e:
-                print(f"文本渲染失败: {e}")
+                logger.error(f"文本渲染失败: {e}")
                 # 删除刚创建的图层
                 self.canvas.remove_layer(len(self.canvas.layers) - 1)
                 self.reset()
@@ -376,7 +379,7 @@ class TextTool(BaseTool):
                 )
                 self.text_preview = text_bitmap
             except Exception as e:
-                print(f"文本渲染失败: {e}")
+                logger.error(f"文本渲染失败: {e}")
 
     def _is_point_in_text(self, x: int, y: int) -> bool:
         """检查点是否在文本区域内"""

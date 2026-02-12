@@ -17,7 +17,7 @@
 
 ### 2.1 画布属性
 
-* **尺寸**：默认 `212 x 104` px。
+* **尺寸**：默认 `104 x 212` px（竖屏）。
 * 限制：最小 `1x1`，最大 `999x999`。
 * 修改尺寸：支持调整画布大小（Resize Canvas），默认以左上角 `(0,0)` 为锚点，向右/下扩展或裁剪。
 
@@ -124,7 +124,7 @@
 
 * **规则 A：字节对齐 (Byte Padding)**
 * 当行宽/列高不是 8 的倍数时，必须补齐 `0` 到下一个完整的字节。
-* *示例*：宽度 212 像素 -> 212 bits -> 26.5 bytes -> 导出 **27 bytes**。最后 4 bit 补 0。
+* *示例*：宽度 104 像素 -> 104 bits -> 13 bytes。高度 212 像素 -> 212 bits -> 26.5 bytes -> 导出 **27 bytes**（按行扫描时）。最后 4 bit 补 0。
 
 
 * **规则 B：取模方式 (Scanning)**
@@ -167,7 +167,7 @@
 1. **C Header (.h)**:
 ```c
 // File: image_data.h
-// Width: 212, Height: 104
+// Width: 104, Height: 212
 // Format: Vertical, MSB First
 const unsigned char image_data[] = {
     0x00, 0xFF, 0x12, ... // Hex format

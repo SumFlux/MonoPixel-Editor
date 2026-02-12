@@ -4,11 +4,14 @@ from PyQt6.QtCore import Qt, QPointF, QRectF, pyqtSignal, QLineF
 from PyQt6.QtGui import QPixmap, QImage, QPainter, QPen, QColor, QWheelEvent, QMouseEvent, QBrush, QFont
 import numpy as np
 from typing import Optional, List
+import logging
 
 from ..core.canvas import Canvas
 from ..services.text_service import TextService
 from ..services.font_manager import FontManager
 from ..utils.constants import MIN_ZOOM, MAX_ZOOM, ZOOM_STEP, GRID_COLOR
+
+logger = logging.getLogger(__name__)
 
 
 class CanvasView(QGraphicsView):
@@ -124,7 +127,7 @@ class CanvasView(QGraphicsView):
                         )
 
                 except Exception as e:
-                    print(f"渲染文本对象失败: {e}")
+                    logger.error(f"渲染文本对象失败: {e}")
 
         # 如果有工具预览，叠加预览点
         if show_preview and self.current_tool:
@@ -133,16 +136,26 @@ class CanvasView(QGraphicsView):
                 if 0 <= x < self.canvas.width and 0 <= y < self.canvas.height:
                     merged_data[y, x] = True
 
-        # 转换为 QImage
+        # 转换为 QImage（使用向量化操作）
         height, width = merged_data.shape
-        image = QImage(width, height, QImage.Format.Format_RGB32)
 
-        # 填充图像数据（纯黑色和纯白色）
-        for y in range(height):
-            for x in range(width):
-                # True=黑色, False=白色
-                color = 0xFF000000 if merged_data[y, x] else 0xFFFFFFFF
-                image.setPixel(x, y, color)
+        # 创建 RGB 数组（使用向量化）
+        # True=黑色(0), False=白色(255)
+        rgb_data = np.where(merged_data, 0, 255).astype(np.uint8)
+
+        # 创建 ARGB32 格式的数组
+        # 格式：B, G, R, A
+        image_data = np.zeros((height, width, 4), dtype=np.uint8)
+        image_data[:, :, 0] = rgb_data  # B
+        image_data[:, :, 1] = rgb_data  # G
+        image_data[:, :, 2] = rgb_data  # R
+        image_data[:, :, 3] = 255       # A (不透明)
+
+        # 创建 QImage
+        image = QImage(image_data.data, width, height, width * 4, QImage.Format.Format_ARGB32)
+
+        # 确保数据不被垃圾回收
+        image._array_ref = image_data
 
         # 更新场景
         pixmap = QPixmap.fromImage(image)

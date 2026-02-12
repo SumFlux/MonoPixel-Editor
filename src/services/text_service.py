@@ -274,7 +274,7 @@ class TextService:
 
     def _image_to_bitmap(self, image: QImage) -> np.ndarray:
         """
-        将 QImage 转换为位图
+        将 QImage 转换为位图（使用向量化操作）
 
         Args:
             image: QImage 对象
@@ -285,20 +285,25 @@ class TextService:
         width = image.width()
         height = image.height()
 
-        # 转换为灰度
-        bitmap = np.zeros((height, width), dtype=bool)
+        # 转换为 numpy 数组（使用向量化操作）
+        # 获取图像数据指针
+        ptr = image.constBits()
+        ptr.setsize(height * width * 4)  # ARGB32 格式，每像素 4 字节
 
-        for y in range(height):
-            for x in range(width):
-                pixel = image.pixel(x, y)
-                # 提取灰度值（简单平均）
-                r = (pixel >> 16) & 0xFF
-                g = (pixel >> 8) & 0xFF
-                b = pixel & 0xFF
-                gray = (r + g + b) // 3
+        # 转换为 numpy 数组
+        arr = np.frombuffer(ptr, dtype=np.uint8).reshape((height, width, 4))
 
-                # 阈值二值化（128）
-                bitmap[y, x] = gray < 128
+        # 提取 RGB 通道（跳过 Alpha）
+        # ARGB32 格式：B, G, R, A
+        b = arr[:, :, 0].astype(np.int32)
+        g = arr[:, :, 1].astype(np.int32)
+        r = arr[:, :, 2].astype(np.int32)
+
+        # 计算灰度值（简单平均）
+        gray = (r + g + b) // 3
+
+        # 阈值二值化（128）
+        bitmap = gray < 128
 
         return bitmap
 

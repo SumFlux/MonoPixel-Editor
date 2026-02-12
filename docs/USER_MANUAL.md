@@ -153,7 +153,7 @@ chmod +x MonoPixelEditor
 **推荐尺寸**：
 - OLED 128x64：128 x 64
 - OLED 128x32：128 x 32
-- LCD 212x104：212 x 104
+- LCD 104x212（竖屏）：104 x 212
 
 ### 画布导航
 

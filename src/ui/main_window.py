@@ -42,6 +42,12 @@ class MainWindow(QMainWindow):
         # 创建配置管理器
         self.config = Config()
 
+        # 创建字体管理器和文本服务
+        from ..services.font_manager import FontManager
+        from ..services.text_service import TextService
+        self.font_manager = FontManager()
+        self.text_service = TextService(self.font_manager)
+
         # 创建画布
         self.canvas = Canvas(DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT)
 
@@ -164,6 +170,14 @@ class MainWindow(QMainWindow):
         canvas_size_action.triggered.connect(self._on_canvas_size)
         image_menu.addAction(canvas_size_action)
 
+        # 图层菜单
+        layer_menu = menubar.addMenu("图层(&L)")
+
+        self.rasterize_text_action = QAction("栅格化文本图层(&R)", self)
+        self.rasterize_text_action.triggered.connect(self._on_rasterize_text_layer)
+        self.rasterize_text_action.setEnabled(False)  # 默认禁用
+        layer_menu.addAction(self.rasterize_text_action)
+
     def _create_tools(self) -> None:
         """创建工具实例"""
         self.tools = {
@@ -200,6 +214,9 @@ class MainWindow(QMainWindow):
         self.layer_panel = LayerPanel(self.canvas)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_panel)
 
+        # 设置图层面板和属性面板的高度比例为 50:50
+        self.resizeDocks([self.property_panel, self.layer_panel], [400, 400], Qt.Orientation.Vertical)
+
     def _connect_signals(self) -> None:
         """连接信号"""
         # 画布视图信号
@@ -210,6 +227,9 @@ class MainWindow(QMainWindow):
         # 图层面板信号
         self.layer_panel.layer_changed.connect(self._on_layer_changed)
         self.layer_panel.active_layer_changed.connect(self._on_active_layer_changed)
+
+        # 属性面板信号
+        self.property_panel.text_property_changed.connect(self._on_text_property_changed)
 
     def _create_central_widget(self) -> None:
         """创建中央部件"""
@@ -494,6 +514,92 @@ class MainWindow(QMainWindow):
 
             self.status_message_label.setText(f"画布尺寸已调整为 {new_width}x{new_height}")
 
+    def _on_rasterize_text_layer(self) -> None:
+        """栅格化文本图层"""
+        from PyQt6.QtWidgets import QMessageBox
+
+        layer = self.canvas.get_active_layer()
+        if not layer or layer.layer_type != "text" or not layer.text_object:
+            return
+
+        # 询问用户是否删除原文本图层
+        reply = QMessageBox.question(
+            self, "栅格化文本图层",
+            "是否在栅格化后删除原文本图层？\n\n"
+            "选择【是】：创建位图图层并删除文本图层\n"
+            "选择【否】：创建位图图层并保留文本图层",
+            QMessageBox.StandardButton.Yes |
+            QMessageBox.StandardButton.No |
+            QMessageBox.StandardButton.Cancel
+        )
+
+        if reply == QMessageBox.StandardButton.Cancel:
+            return
+
+        try:
+            # 渲染文本对象为位图
+            from PyQt6.QtGui import QFont
+            text_obj = layer.text_object
+
+            font = QFont(text_obj.font_name)
+            font.setPixelSize(text_obj.font_size)
+
+            # 如果有自定义字体路径，加载它
+            if text_obj.custom_font_path:
+                self.font_manager.load_custom_font(text_obj.custom_font_path)
+
+            # 渲染文本
+            text_bitmap = self.text_service.render_text(
+                text_obj.text,
+                font,
+                squeeze_halfwidth=True,
+                max_width=text_obj.max_width,
+                letter_spacing=text_obj.letter_spacing,
+                line_spacing=text_obj.line_spacing
+            )
+
+            # 创建新的位图图层
+            new_layer = self.canvas.add_layer(f"{layer.name} (栅格化)", layer_type="bitmap")
+
+            # 将文本位图复制到新图层
+            px, py = text_obj.position
+            text_h, text_w = text_bitmap.shape
+
+            # 计算有效区域
+            x1 = max(0, px)
+            y1 = max(0, py)
+            x2 = min(self.canvas.width, px + text_w)
+            y2 = min(self.canvas.height, py + text_h)
+
+            # 计算文本位图的有效区域
+            text_x1 = max(0, -px)
+            text_y1 = max(0, -py)
+            text_x2 = text_x1 + (x2 - x1)
+            text_y2 = text_y1 + (y2 - y1)
+
+            if x2 > x1 and y2 > y1:
+                new_layer.data[y1:y2, x1:x2] = text_bitmap[text_y1:text_y2, text_x1:text_x2]
+
+            # 如果用户选择删除原图层
+            if reply == QMessageBox.StandardButton.Yes:
+                # 找到原图层的索引
+                layer_index = self.canvas.layers.index(layer)
+                self.canvas.remove_layer(layer_index)
+                # 激活新图层（新图层现在在原位置）
+                self.canvas.active_layer_index = layer_index
+            else:
+                # 保留原图层，激活新图层
+                self.canvas.active_layer_index = len(self.canvas.layers) - 1
+
+            # 更新视图
+            self.canvas_view.update_canvas()
+            self.layer_panel.refresh_layers()
+
+            self.status_message_label.setText("文本图层已栅格化")
+
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"栅格化失败: {e}")
+
     def _on_tool_changed(self, tool_id: str) -> None:
         """
         工具切换事件
@@ -577,6 +683,30 @@ class MainWindow(QMainWindow):
         if self.current_tool and hasattr(self.current_tool, 'set_fill_mode'):
             self.current_tool.set_fill_mode(mode)
 
+    def _on_text_property_changed(self) -> None:
+        """文本属性改变事件"""
+        layer = self.canvas.get_active_layer()
+        if not layer or layer.layer_type != "text" or not layer.text_object:
+            return
+
+        # 获取文本编辑器
+        text_editor = self.property_panel.get_text_editor()
+
+        # 更新文本对象属性
+        text_obj = layer.text_object
+        text_obj.text = text_editor.text_edit.toPlainText()
+        text_obj.font_name = text_editor.font_combo.currentText()
+        text_obj.font_size = text_editor.font_size_spin.value()
+        text_obj.max_width = text_editor.max_width_spin.value()
+        text_obj.letter_spacing = text_editor.letter_spacing_spin.value()
+        text_obj.line_spacing = text_editor.line_spacing_spin.value()
+        text_obj.position = (text_editor.x_spin.value(), text_editor.y_spin.value())
+        text_obj.custom_font_path = text_editor.get_custom_font_path() or ""
+
+        # 更新画布显示
+        self.canvas_view.update_canvas()
+        self.project.mark_modified()
+
     def _on_draw_completed(self, old_data, new_data) -> None:
         """
         绘制完成事件
@@ -609,6 +739,17 @@ class MainWindow(QMainWindow):
         # 通知当前工具图层已切换
         if self.current_tool and hasattr(self.current_tool, 'on_layer_changed'):
             self.current_tool.on_layer_changed()
+
+        # 更新"栅格化文本图层"菜单项的启用状态和属性面板显示
+        layer = self.canvas.get_active_layer()
+        if layer and layer.layer_type == "text" and layer.text_object:
+            self.rasterize_text_action.setEnabled(True)
+            # 显示文本属性编辑器
+            self.property_panel.show_text_properties(layer.text_object)
+        else:
+            self.rasterize_text_action.setEnabled(False)
+            # 显示通用属性
+            self.property_panel.show_general_properties()
 
         self.canvas_view.update_canvas()
 

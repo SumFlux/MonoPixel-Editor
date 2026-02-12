@@ -214,16 +214,24 @@ class ExportDialog(QDialog):
                     f.write(byte_data)
 
             else:  # png
-                # 导出为 PNG
+                # 导出为 PNG（使用向量化操作提升性能）
                 height, width = data.shape
-                image = QImage(width, height, QImage.Format.Format_Mono)
-                for y in range(height):
-                    for x in range(width):
-                        pixel = data[y, x]
-                        if invert:
-                            pixel = not pixel
-                        color = 0 if pixel else 1
-                        image.setPixel(x, y, color)
+
+                # 处理反转
+                export_data = ~data if invert else data
+
+                # 转换为 RGB 数组（True=黑色, False=白色）
+                rgb_data = np.where(export_data, 0, 255).astype(np.uint8)
+
+                # 创建 RGB 图像
+                image_data = np.zeros((height, width, 3), dtype=np.uint8)
+                image_data[:, :, 0] = rgb_data  # R
+                image_data[:, :, 1] = rgb_data  # G
+                image_data[:, :, 2] = rgb_data  # B
+
+                # 创建 QImage
+                image = QImage(image_data.data, width, height, width * 3, QImage.Format.Format_RGB888)
+                image._array_ref = image_data  # 防止垃圾回收
                 image.save(file_path)
 
             self.accept()
